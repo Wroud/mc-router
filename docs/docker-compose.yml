@@ -9,7 +9,7 @@ services:
       EULA: "TRUE"
       TYPE: FORGE
   router:
-    image: ${MC_ROUTER_IMAGE:-itzg/mc-router}
+    image: ${MC_ROUTER_IMAGE:-wroud/mc-router}
     depends_on:
       - forge
       - vanilla

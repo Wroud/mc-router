@@ -19,7 +19,7 @@ services:
     labels:
       mc-router.host: "bar.localhost"
   router:
-    image: itzg/mc-router:latest
+    image: wroud/mc-router:latest
     command: "-debug -in-docker"
     depends_on:
       - mcfoo

@@ -4,7 +4,7 @@ kind: Service
 metadata:
   name: mc-latest
   annotations:
-    "mc-router.itzg.me/defaultServer": "true"
+    "mc-router.wroud.me/defaultServer": "true"
 spec:
   type: NodePort
   ports:
@@ -45,7 +45,7 @@ kind: Service
 metadata:
   name: mc-snapshot
   annotations:
-    "mc-router.itzg.me/externalServerName": "snapshot.your.domain"
+    "mc-router.wroud.me/externalServerName": "snapshot.your.domain"
 spec:
   type: NodePort
   ports:

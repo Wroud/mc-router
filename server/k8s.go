@@ -3,6 +3,11 @@ package server
 import (
 	"context"
 	"fmt"
+	"net"
+	"strconv"
+	"strings"
+	"sync"
+
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	apps "k8s.io/api/apps/v1"
@@ -14,15 +19,11 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"net"
-	"strconv"
-	"strings"
-	"sync"
 )
 
 const (
-	AnnotationExternalServerName = "mc-router.itzg.me/externalServerName"
-	AnnotationDefaultServer      = "mc-router.itzg.me/defaultServer"
+	AnnotationExternalServerName = "mc-router.wroud.me/externalServerName"
+	AnnotationDefaultServer      = "mc-router.wroud.me/defaultServer"
 )
 
 // K8sWatcher is a RouteFinder that can find routes from kubernetes services.

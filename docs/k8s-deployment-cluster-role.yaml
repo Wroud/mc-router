@@ -52,9 +52,9 @@ spec:
     spec:
       serviceAccountName: mc-router
       containers:
-      - image: itzg/mc-router
+      - image: wroud/mc-router
         name: mc-router
-        # Add "--auto-scale-up" here for https://github.com/itzg/mc-router/#auto-scale-up
+        # Add "--auto-scale-up" here for https://github.com/wroud/mc-router/#auto-scale-up
         args:
           - --api-binding
           - :8080

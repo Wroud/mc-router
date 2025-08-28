@@ -3,7 +3,7 @@ version: 2
 project_name: mc-router
 release:
   github:
-    owner: itzg
+    owner: wroud
     name: mc-router
 before:
   hooks:
@@ -38,8 +38,8 @@ archives:
       - README*
 dockers:
   - image_templates:
-      - "itzg/{{ .ProjectName }}:{{ .Version }}-amd64"
-      - "itzg/{{ .ProjectName }}:latest-amd64"
+      - "wroud/{{ .ProjectName }}:{{ .Version }}-amd64"
+      - "wroud/{{ .ProjectName }}:latest-amd64"
     dockerfile: Dockerfile.release
     goarch: amd64
     use: buildx
@@ -50,8 +50,8 @@ dockers:
       - --label=org.opencontainers.image.version={{ .Version }}
       - --label=org.opencontainers.image.revision={{ .FullCommit }}
   - image_templates:
-      - "itzg/{{ .ProjectName }}:{{ .Version }}-arm64"
-      - "itzg/{{ .ProjectName }}:latest-arm64"
+      - "wroud/{{ .ProjectName }}:{{ .Version }}-arm64"
+      - "wroud/{{ .ProjectName }}:latest-arm64"
     dockerfile: Dockerfile.release
     goarch: arm64
     use: buildx
@@ -62,8 +62,8 @@ dockers:
       - --label=org.opencontainers.image.version={{ .Version }}
       - --label=org.opencontainers.image.revision={{ .FullCommit }}
   - image_templates:
-      - "itzg/{{ .ProjectName }}:{{ .Version }}-arm32v6"
-      - "itzg/{{ .ProjectName }}:latest-arm32v6"
+      - "wroud/{{ .ProjectName }}:{{ .Version }}-arm32v6"
+      - "wroud/{{ .ProjectName }}:latest-arm32v6"
     dockerfile: Dockerfile.release
     goarch: arm
     goarm: "6"
@@ -75,8 +75,8 @@ dockers:
       - --label=org.opencontainers.image.version={{ .Version }}
       - --label=org.opencontainers.image.revision={{ .FullCommit }}
   - image_templates:
-      - "ghcr.io/itzg/{{ .ProjectName }}:{{ .Version }}-amd64"
-      - "ghcr.io/itzg/{{ .ProjectName }}:latest-amd64"
+      - "ghcr.io/wroud/{{ .ProjectName }}:{{ .Version }}-amd64"
+      - "ghcr.io/wroud/{{ .ProjectName }}:latest-amd64"
     dockerfile: Dockerfile.release
     goarch: amd64
     use: buildx
@@ -87,8 +87,8 @@ dockers:
       - --label=org.opencontainers.image.version={{ .Version }}
       - --label=org.opencontainers.image.revision={{ .FullCommit }}
   - image_templates:
-      - "ghcr.io/itzg/{{ .ProjectName }}:{{ .Version }}-arm64"
-      - "ghcr.io/itzg/{{ .ProjectName }}:latest-arm64"
+      - "ghcr.io/wroud/{{ .ProjectName }}:{{ .Version }}-arm64"
+      - "ghcr.io/wroud/{{ .ProjectName }}:latest-arm64"
     dockerfile: Dockerfile.release
     goarch: arm64
     use: buildx
@@ -99,8 +99,8 @@ dockers:
       - --label=org.opencontainers.image.version={{ .Version }}
       - --label=org.opencontainers.image.revision={{ .FullCommit }}
   - image_templates:
-      - "ghcr.io/itzg/{{ .ProjectName }}:{{ .Version }}-arm32v6"
-      - "ghcr.io/itzg/{{ .ProjectName }}:latest-arm32v6"
+      - "ghcr.io/wroud/{{ .ProjectName }}:{{ .Version }}-arm32v6"
+      - "ghcr.io/wroud/{{ .ProjectName }}:latest-arm32v6"
     dockerfile: Dockerfile.release
     goarch: arm
     goarm: "6"
@@ -113,26 +113,26 @@ dockers:
       - --label=org.opencontainers.image.revision={{ .FullCommit }}
 
 docker_manifests:
-  - name_template: "itzg/{{ .ProjectName }}:{{ .Version }}"
+  - name_template: "wroud/{{ .ProjectName }}:{{ .Version }}"
     image_templates:
-      - "itzg/{{ .ProjectName }}:{{ .Version }}-amd64"
-      - "itzg/{{ .ProjectName }}:{{ .Version }}-arm64"
-      - "itzg/{{ .ProjectName }}:{{ .Version }}-arm32v6"
-  - name_template: "itzg/{{ .ProjectName }}:latest"
+      - "wroud/{{ .ProjectName }}:{{ .Version }}-amd64"
+      - "wroud/{{ .ProjectName }}:{{ .Version }}-arm64"
+      - "wroud/{{ .ProjectName }}:{{ .Version }}-arm32v6"
+  - name_template: "wroud/{{ .ProjectName }}:latest"
     image_templates:
-      - "itzg/{{ .ProjectName }}:latest-amd64"
-      - "itzg/{{ .ProjectName }}:latest-arm64"
-      - "itzg/{{ .ProjectName }}:latest-arm32v6"
-  - name_template: "ghcr.io/itzg/{{ .ProjectName }}:{{ .Version }}"
+      - "wroud/{{ .ProjectName }}:latest-amd64"
+      - "wroud/{{ .ProjectName }}:latest-arm64"
+      - "wroud/{{ .ProjectName }}:latest-arm32v6"
+  - name_template: "ghcr.io/wroud/{{ .ProjectName }}:{{ .Version }}"
     image_templates:
-      - "ghcr.io/itzg/{{ .ProjectName }}:{{ .Version }}-amd64"
-      - "ghcr.io/itzg/{{ .ProjectName }}:{{ .Version }}-arm64"
-      - "ghcr.io/itzg/{{ .ProjectName }}:{{ .Version }}-arm32v6"
-  - name_template: "ghcr.io/itzg/{{ .ProjectName }}:latest"
+      - "ghcr.io/wroud/{{ .ProjectName }}:{{ .Version }}-amd64"
+      - "ghcr.io/wroud/{{ .ProjectName }}:{{ .Version }}-arm64"
+      - "ghcr.io/wroud/{{ .ProjectName }}:{{ .Version }}-arm32v6"
+  - name_template: "ghcr.io/wroud/{{ .ProjectName }}:latest"
     image_templates:
-      - "ghcr.io/itzg/{{ .ProjectName }}:latest-amd64"
-      - "ghcr.io/itzg/{{ .ProjectName }}:latest-arm64"
-      - "ghcr.io/itzg/{{ .ProjectName }}:latest-arm32v6"
+      - "ghcr.io/wroud/{{ .ProjectName }}:latest-amd64"
+      - "ghcr.io/wroud/{{ .ProjectName }}:latest-arm64"
+      - "ghcr.io/wroud/{{ .ProjectName }}:latest-arm32v6"
 changelog:
   filters:
     exclude:

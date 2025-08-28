@@ -23,8 +23,9 @@ type routesConfigLoader struct {
 
 // RoutesConfigSchema declares the schema of the json file that can provide routes to serve
 type RoutesConfigSchema struct {
-	DefaultServer string            `json:"default-server"`
-	Mappings      map[string]string `json:"mappings"`
+	DefaultServer  string            `json:"default-server"`
+	FallbackServer string            `json:"fallback-server"`
+	Mappings       map[string]string `json:"mappings"`
 }
 
 func (r *routesConfigLoader) Load(routesConfigFileName string) error {
@@ -45,6 +46,7 @@ func (r *routesConfigLoader) Load(routesConfigFileName string) error {
 
 	Routes.RegisterAll(config.Mappings)
 	Routes.SetDefaultRoute(config.DefaultServer)
+	Routes.SetFallbackRoute(config.FallbackServer)
 	return nil
 }
 
@@ -63,6 +65,7 @@ func (r *routesConfigLoader) Reload() error {
 	Routes.Reset()
 	Routes.RegisterAll(config.Mappings)
 	Routes.SetDefaultRoute(config.DefaultServer)
+	Routes.SetFallbackRoute(config.FallbackServer)
 
 	return nil
 }
@@ -136,8 +139,9 @@ func (r *routesConfigLoader) SaveRoutes() {
 	}
 
 	err := r.writeFile(&RoutesConfigSchema{
-		DefaultServer: Routes.GetDefaultRoute(),
-		Mappings:      Routes.GetMappings(),
+		DefaultServer:  Routes.GetDefaultRoute(),
+		FallbackServer: Routes.GetFallbackRoute(),
+		Mappings:       Routes.GetMappings(),
 	})
 	if err != nil {
 		logrus.WithError(err).Error("Could not save the routes config file")

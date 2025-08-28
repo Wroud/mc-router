@@ -25,6 +25,7 @@ type NgrokConfig struct {
 type Config struct {
 	Port                  int               `default:"25565" usage:"The [port] bound to listen for Minecraft client connections"`
 	Default               string            `usage:"host:port of a default Minecraft server to use when mapping not found"`
+	FallbackRoute         string            `usage:"host:port of a fallback Minecraft server to use when mapped server is unavailable"`
 	Mapping               map[string]string `usage:"Comma or newline delimited or repeated mappings of externalHostname=host:port"`
 	ApiBinding            string            `usage:"The [host:port] bound for servicing API requests"`
 	CpuProfile            string            `usage:"Enables CPU profiling and writes to given path"`

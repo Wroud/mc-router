@@ -53,7 +53,7 @@ job "mc-router" {
       driver = "docker"
 
       config {
-        image = "itzg/mc-router"
+        image = "wroud/mc-router"
         ports = ["minecraft"]
         auth_soft_fail = true
       }

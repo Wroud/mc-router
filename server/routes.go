@@ -2,9 +2,11 @@ package server
 
 import (
 	"context"
+	"net"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -41,10 +43,25 @@ type IRoutes interface {
 	FindBackendForServerAddress(ctx context.Context, serverAddress string) (string, string, ScalerFunc, ScalerFunc)
 	GetMappings() map[string]string
 	GetDefaultRoute() string
+	SetFallbackRoute(backend string)
+	GetFallbackRoute() string
 	SimplifySRV(srvEnabled bool)
 }
 
 var Routes = NewRoutes()
+
+func testBackendConnectivity(backend string) bool {
+	if backend == "" {
+		return false
+	}
+
+	conn, err := net.DialTimeout("tcp", backend, 2*time.Second)
+	if err != nil {
+		return false
+	}
+	defer conn.Close()
+	return true
+}
 
 func NewRoutes() IRoutes {
 	r := &routesImpl{
@@ -68,9 +85,10 @@ type mapping struct {
 
 type routesImpl struct {
 	sync.RWMutex
-	mappings     map[string]mapping
-	defaultRoute string
-	simplifySRV  bool
+	mappings      map[string]mapping
+	defaultRoute  string
+	fallbackRoute string
+	simplifySRV   bool
 }
 
 func (r *routesImpl) Reset() {
@@ -88,6 +106,18 @@ func (r *routesImpl) SetDefaultRoute(backend string) {
 
 func (r *routesImpl) GetDefaultRoute() string {
 	return r.defaultRoute
+}
+
+func (r *routesImpl) SetFallbackRoute(backend string) {
+	r.fallbackRoute = backend
+
+	logrus.WithFields(logrus.Fields{
+		"backend": backend,
+	}).Info("Using fallback route")
+}
+
+func (r *routesImpl) GetFallbackRoute() string {
+	return r.fallbackRoute
 }
 
 func (r *routesImpl) SimplifySRV(srvEnabled bool) {
@@ -128,12 +158,29 @@ func (r *routesImpl) FindBackendForServerAddress(_ context.Context, serverAddres
 	// Strip suffix of TCP Shield
 	serverAddress = tcpShieldPattern.ReplaceAllString(serverAddress, "")
 
+	route := r.defaultRoute
+	var waker ScalerFunc = nil
+	var sleeper ScalerFunc = nil
+
 	if r.mappings != nil {
 		if mapping, exists := r.mappings[serverAddress]; exists {
-			return mapping.backend, serverAddress, mapping.waker, mapping.sleeper
+			route = mapping.backend
+			waker = mapping.waker
+			sleeper = mapping.sleeper
 		}
 	}
-	return r.defaultRoute, serverAddress, nil, nil
+
+	if waker == nil && r.fallbackRoute != "" && !testBackendConnectivity(route) {
+		logrus.WithFields(logrus.Fields{
+			"serverAddress": serverAddress,
+			"backend":       route,
+		}).Warn("Mapped backend is unavailable, falling back to fallback route")
+		route = r.fallbackRoute
+		waker = nil
+		sleeper = nil
+	}
+
+	return route, serverAddress, waker, sleeper
 }
 
 func (r *routesImpl) GetMappings() map[string]string {

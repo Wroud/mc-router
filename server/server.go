@@ -3,12 +3,13 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"net"
 	"os"
 	"runtime/pprof"
 	"strconv"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type Server struct {
@@ -73,6 +74,9 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 	Routes.RegisterAll(config.Mapping)
 	if config.Default != "" {
 		Routes.SetDefaultRoute(config.Default)
+	}
+	if config.FallbackRoute != "" {
+		Routes.SetFallbackRoute(config.FallbackRoute)
 	}
 
 	if config.ConnectionRateLimit < 1 {

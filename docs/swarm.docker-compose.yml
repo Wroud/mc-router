@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   router:
-    image: itzg/mc-router:latest
+    image: wroud/mc-router:latest
     command: --in-docker-swarm
     deploy:
       mode: replicated

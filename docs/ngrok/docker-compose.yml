@@ -9,7 +9,7 @@ services:
       - mc-data:/data
     # No port mapping since mc-router connects over compose network
   router:
-    image: itzg/mc-router
+    image: wroud/mc-router
     environment:
       DEFAULT: mc:25565
       NGROK_TOKEN: ${NGROK_TOKEN}

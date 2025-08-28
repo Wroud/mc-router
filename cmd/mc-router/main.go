@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/itzg/go-flagsfiller"
-	"github.com/itzg/mc-router/server"
+	"github.com/wroud/mc-router/server"
 	"github.com/sirupsen/logrus"
 	"os"
 	"os/signal"

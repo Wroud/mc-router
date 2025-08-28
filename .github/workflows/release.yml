@@ -8,7 +8,7 @@ on:
 
 jobs:
   release:
-    uses: itzg/github-workflows/.github/workflows/go-with-releaser-image.yml@main
+    uses: wroud/github-workflows/.github/workflows/go-with-releaser-image.yml@main
     with:
       go-version-file: 'go.mod'
       enable-ghcr: true

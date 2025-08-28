@@ -1,4 +1,4 @@
-module github.com/itzg/mc-router
+module github.com/wroud/mc-router
 
 go 1.24.4
 

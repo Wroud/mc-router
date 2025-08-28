@@ -8,11 +8,11 @@ To use your own dev image, such as via [Github Packages](https://docs.github.com
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - https://github.com/itzg/mc-router/kustomize/overlays/role
+  - https://github.com/wroud/mc-router/kustomize/overlays/role
   # OR
-  # - https://github.com/itzg/mc-router/kustomize/overlays/cluster-role
+  # - https://github.com/wroud/mc-router/kustomize/overlays/cluster-role
 images:
-  - name: itzg/mc-router
+  - name: wroud/mc-router
     # replace your-user-org with your Github user/org and/or replace ghcr.io with your Docker registry
     newName: ghcr.io/your-user-org/mc-router-dev
 patches:

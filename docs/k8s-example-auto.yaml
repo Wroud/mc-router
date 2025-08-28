@@ -63,7 +63,7 @@ spec:
     spec:
       serviceAccountName: mc-router
       containers:
-      - image: itzg/mc-router:latest
+      - image: wroud/mc-router:latest
         name: mc-router
         args: ["--api-binding", ":8080", "--in-kube-cluster"]
         ports:
@@ -84,7 +84,7 @@ kind: Service
 metadata:
   name: mc-stable
   annotations:
-    "mc-router.itzg.me/externalServerName": "mc.your.domain"
+    "mc-router.wroud.me/externalServerName": "mc.your.domain"
 spec:
   ports:
   - port: 25565
@@ -130,7 +130,7 @@ kind: Service
 metadata:
   name: mc-snapshot
   annotations:
-    "mc-router.itzg.me/externalServerName": "snapshot.your.domain"
+    "mc-router.wroud.me/externalServerName": "snapshot.your.domain"
 spec:
   ports:
   - port: 25565

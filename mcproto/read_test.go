@@ -124,7 +124,7 @@ func TestHandshakeThenLoginStartVersion(t *testing.T) {
 			loginStart, err := DecodeLoginStart(handshake.ProtocolVersion, loginStartPacket.Data)
 			require.NoError(t, err)
 
-			assert.Equal(t, "itzg", loginStart.Name)
+			assert.Equal(t, "wroud", loginStart.Name)
 			assert.Equal(t, tt.ExpectedPlayerUuid, loginStart.PlayerUuid)
 		})
 	}

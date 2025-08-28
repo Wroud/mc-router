@@ -10,6 +10,6 @@ on:
 
 jobs:
   build:
-    uses: itzg/github-workflows/.github/workflows/go-test.yml@main
+    uses: wroud/github-workflows/.github/workflows/go-test.yml@main
     with:
       go-version-file: 'go.mod'

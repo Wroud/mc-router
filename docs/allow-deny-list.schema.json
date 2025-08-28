@@ -1,6 +1,6 @@
 {
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
-	"$id": "https://github.com/itzg/mc-router/docs/allow-deny-list.schema.json",
+	"$id": "https://github.com/wroud/mc-router/docs/allow-deny-list.schema.json",
 	"title": "Player allow/deny list",
 	"description": "Per-server and/or global player allow/deny list",
 	"type": "object",

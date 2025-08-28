@@ -1,6 +1,6 @@
 services:
   router:
-    image: itzg/mc-router
+    image: wroud/mc-router
     environment:
       IN_DOCKER: true
     ports:
