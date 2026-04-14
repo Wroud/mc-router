@@ -7,7 +7,6 @@ import (
 	"os"
 	"runtime/pprof"
 	"strconv"
-	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -49,11 +48,8 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 
 	metricsBuilder := NewMetricsBuilder(config.MetricsBackend, &config.MetricsBackendConfig)
 
-	downScalerEnabled := config.AutoScale.Down && (config.InKubeCluster || config.KubeConfig != "")
-	downScalerDelay, err := time.ParseDuration(config.AutoScale.DownAfter)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse auto-scale-down-after duration: %w", err)
-	}
+	downScalerEnabled := config.AutoScale.Down && (config.InKubeCluster || config.KubeConfig != "" || config.InDocker)
+	downScalerDelay := config.AutoScale.DownAfter
 	// Only one instance should be created
 	DownScaler = NewDownScaler(ctx, downScalerEnabled, downScalerDelay)
 
@@ -73,7 +69,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 
 	Routes.RegisterAll(config.Mapping)
 	if config.Default != "" {
-		Routes.SetDefaultRoute(config.Default)
+		Routes.SetDefaultRoute(config.Default, "", nil, nil, "", "")
 	}
 	if config.FallbackRoute != "" {
 		Routes.SetFallbackRoute(config.FallbackRoute)
@@ -88,6 +84,9 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 		config.UseProxyProtocol,
 		config.RecordLogins,
 		autoScaleAllowDenyConfig)
+
+	connector.UseAsleepMOTD(config.AutoScale.AsleepMOTD)
+	connector.UseLoadingMOTD(config.AutoScale.LoadingMOTD)
 
 	clientFilter, err := NewClientFilter(config.ClientsToAllow, config.ClientsToDeny)
 	if err != nil {
@@ -146,7 +145,8 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 
 	// TODO convert to RouteFinder
 	if config.InDocker {
-		err = DockerWatcher.Start(ctx, config.DockerSocket, config.DockerTimeout, config.DockerRefreshInterval, config.AutoScale.Up, config.AutoScale.Down)
+		watcher := NewDockerWatcher(config.DockerSocket, config.DockerTimeout, config.DockerRefreshInterval, config.AutoScale.Up, config.AutoScale.Down, config.DockerApiVersion)
+		err = watcher.Start(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("could not start docker integration: %w", err)
 		}
@@ -154,7 +154,8 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 
 	// TODO convert to RouteFinder
 	if config.InDockerSwarm {
-		err = DockerSwarmWatcher.Start(ctx, config.DockerSocket, config.DockerTimeout, config.DockerRefreshInterval, config.AutoScale.Up, config.AutoScale.Down)
+		watcher := NewDockerSwarmWatcher(config.DockerSocket, config.DockerTimeout, config.DockerRefreshInterval, config.AutoScale.Up, config.AutoScale.Down, config.DockerApiVersion)
+		err = watcher.Start(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("could not start docker swarm integration: %w", err)
 		}
@@ -183,15 +184,6 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 	}, nil
 }
 
-// Done provides a channel notified when the server has closed all connections, etc
-func (s *Server) Done() <-chan struct{} {
-	return s.doneChan
-}
-
-func (s *Server) notifyDone() {
-	s.doneChan <- struct{}{}
-}
-
 // ReloadConfig indicates that an external request, such as a SIGHUP,
 // is requesting the routes config file to be reloaded, if enabled
 func (s *Server) ReloadConfig() {
@@ -210,10 +202,10 @@ func (s *Server) Run() {
 	err := s.connector.StartAcceptingConnections(
 		net.JoinHostPort("", strconv.Itoa(s.config.Port)),
 		s.config.ConnectionRateLimit,
+		s.config.MetricsRateLimitPeriod,
 	)
 	if err != nil {
 		logrus.WithError(err).Error("Could not start accepting connections")
-		s.notifyDone()
 		return
 	}
 
@@ -226,10 +218,9 @@ func (s *Server) Run() {
 			}
 
 		case <-s.ctx.Done():
-			logrus.Info("Stopping. Waiting for connections to complete...")
+			logrus.Info("Server Stopping. Waiting for connections to complete...")
 			s.connector.WaitForConnections()
 			logrus.Info("Stopped")
-			s.notifyDone()
 			return
 		}
 	}

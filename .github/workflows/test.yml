@@ -3,10 +3,17 @@ name: Test
 on:
   push:
     branches:
-      - master
+      - main
+    paths-ignore: &pathsIgnore
+      - 'docs/**'
+      - 'examples/**'
+      - 'kustomize/**'
+      - 'README.md'
+      - '.github/dependabot.yml'
   pull_request:
     branches:
-      - master
+      - main
+    paths-ignore: *pathsIgnore
 
 jobs:
   build:

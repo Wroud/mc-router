@@ -14,7 +14,8 @@ Some other features included:
 - Rate limits incoming connections to reduce DDoS attacks.
 - Can be configured to allow/deny IP addresses or ranges
 - Includes a webhook integration for notifying other systems when a player connects and disconnects from a server.
-- Can auto-scale (between zero and one) backend servers deployed as Kubernetes StatefulSets.
+- Can auto-scale (between zero and one) backend servers deployed as Kubernetes StatefulSets
+- or start and stop backend servers running as docker containers.
 - Built-in ngrok integration where mc-router acts as an agent
 - Exports/exposes metrics for various Prometheus and InfluxDB. If enabled, includes player login metrics.
 
@@ -23,14 +24,18 @@ Some other features included:
 ```text
   -api-binding host:port
     	The host:port bound for servicing API requests (env API_BINDING)
-  -auto-scale-up
-    	Increase Kubernetes StatefulSet Replicas (only) from 0 to 1 on respective backend servers when accessed (env AUTO_SCALE_UP)
-  -auto-scale-down
-      Decrease Kubernetes StatefulSet Replicas (only) from 1 to 0 after all backend connections have stopped and a configurable amount of delay has passed (env AUTO_SCALE_DOWN)
-  -auto-scale-down-after
-      String indicating how long an auto scale down should wait before scaling down a backend server. If a player rejoins the server during this delay, the scale down will be canceled (env AUTO_SCALE_DOWN_AFTER)
   -auto-scale-allow-deny string
-      Path to config for server allowlists and denylists. If a global/server entry is specified, only players allowed to connect to the server will be able to trigger a scale up when -auto-scale-up is enabled or cancel active down scalers when -auto-scale-down is enabled (env AUTO_SCALE_ALLOW_DENY)
+    	Path to config for server allowlists and denylists. If a global/server entry is specified, only players allowed to connect to the server will be able to trigger a scale up when -auto-scale-up is enabled or cancel active down scalers when -auto-scale-down is enabled (env AUTO_SCALE_ALLOW_DENY)
+  -auto-scale-asleep-motd string
+    	MOTD to display when auto-scaled down servers are accessed; if empty, no status will be served (env AUTO_SCALE_ASLEEP_MOTD)
+  -auto-scale-loading-motd string
+    	MOTD to display while auto-scaled Docker servers are waking up; if empty, asleep status will be served (env AUTO_SCALE_LOADING_MOTD)
+  -auto-scale-down
+    	Scale to zero after idle. For Kubernetes, decreases StatefulSet replicas from 1 to 0. For Docker, gracefully stops the container when there are no connections (env AUTO_SCALE_DOWN)
+  -auto-scale-down-after string
+    	Server scale down delay after there are no connections (env AUTO_SCALE_DOWN_AFTER) (default "10m")
+  -auto-scale-up
+    	Scale from zero on access. For Kubernetes, increases StatefulSet replicas from 0 to 1. For Docker, starts or unpauses the container when accessed (env AUTO_SCALE_UP)
   -clients-to-allow value
     	Zero or more client IP addresses or CIDRs to allow. Takes precedence over deny. (env CLIENTS_TO_ALLOW)
   -clients-to-deny value
@@ -43,6 +48,8 @@ Some other features included:
     	Enable debug logs (env DEBUG)
   -default string
     	host:port of a default Minecraft server to use when mapping not found (env DEFAULT)
+  -docker-api-version string
+    	Instead of auto-negotiating, use specific Docker API version (env DOCKER_API_VERSION)
   -docker-refresh-interval int
     	Refresh interval in seconds for the Docker integrations (env DOCKER_REFRESH_INTERVAL) (default 15)
   -docker-socket string
@@ -59,6 +66,9 @@ Some other features included:
     	The path to a Kubernetes configuration file (env KUBE_CONFIG)
   -kube-namespace string
     	The namespace to watch or blank for all, which is the default (env KUBE_NAMESPACE)
+  -log-level value
+    	Set a specific log filtering level, such as debug, info, warn, error
+    	Ignored when --debug or --trace is used (env LOG_LEVEL) (default info)
   -mapping value
     	Comma or newline delimited or repeated mappings of externalHostname=host:port (env MAPPING)
   -metrics-backend string
@@ -85,12 +95,16 @@ Some other features included:
     	The port bound to listen for Minecraft client connections (env PORT) (default 25565)
   -receive-proxy-protocol
     	Receive PROXY protocol from backend servers, by default trusts every proxy header that it receives, combine with -trusted-proxies to specify a list of trusted proxies (env RECEIVE_PROXY_PROTOCOL)
+  -record-logins
+    	Log and generate metrics on player logins. Metrics only supported with influxdb or prometheus backend (env RECORD_LOGINS)
   -routes-config path
     	Name or full path to routes config file (env ROUTES_CONFIG)
   -routes-config-watch
     	Watch for config file changes (env ROUTES_CONFIG_WATCH)
   -simplify-srv
     	Simplify fully qualified SRV records for mapping (env SIMPLIFY_SRV)
+  -trace
+    	Enable trace logs (env TRACE)
   -trusted-proxies value
     	Comma delimited list of CIDR notation IP blocks to trust when receiving PROXY protocol (env TRUSTED_PROXIES)
   -use-proxy-protocol
@@ -101,8 +115,6 @@ Some other features included:
     	Indicates if the webhook will only be called if a user is connecting rather than just server list/ping (env WEBHOOK_REQUIRE_USER)
   -webhook-url string
     	If set, a POST request that contains connection status notifications will be sent to this HTTP address (env WEBHOOK_URL)
-  -record-logins
-      Log and generate metrics on player logins. Metrics only supported with influxdb or prometheus backend (env RECORD_LOGINS)
 ```
 
 ## Docker Multi-Architecture Image
@@ -161,10 +173,41 @@ When using in Docker, make sure to volume mount the Docker socket into the conta
 
 These are the labels scanned:
 
-- `mc-router.host`: Used to configure the hostname the Minecraft clients would use to connect to the server. The container/service endpoint will be used as the routed backend. You can use more than one hostname by splitting it with a comma.
+- `mc-router.host`: Used to configure the hostname the Minecraft clients would use to connect to the server. The container/service endpoint will be used as the routed backend. You can use more than one hostname by splitting it with a comma or newline. Whitespace around commas is automatically trimmed. For example: `"host1.com,host2.com"`, `"host1.com, host2.com"`, or `"host1.com\nhost2.com"`.
 - `mc-router.port`: This value must be set to the port the Minecraft server is listening on. The default value is 25565.
 - `mc-router.default`: Set this to a truthy value to make this server the default backend. Please note that `mc-router.host` is still required to be set.
 - `mc-router.network`: Specify the network you are using for the router if multiple are present in the container/service. You can either use the network ID, it's full name or an alias.
+- `mc-router.auto-scale-up`: Per-container override to enable/disable auto scale up for Docker. When true (or left unspecified and the global `-auto-scale-up` flag is enabled), mc-router will start or unpause this container when a client connects to the declared hostname(s).
+- `mc-router.auto-scale-down`: Per-container override to enable/disable auto scale down for Docker. When true (or left unspecified and the global `-auto-scale-down` flag is enabled), mc-router will stop this container after it has been idle for the configured `-auto-scale-down-after` duration.
+- `mc-router.auto-scale-asleep-motd`: Per-container override for MOTD to show when container is scaled to zero. If empty or not set the host will
+appear unresponsive.
+- `mc-router.auto-scale-loading-motd`: Per-container override for MOTD to show while the container is waking and not yet reachable. If empty or not set, the global `-auto-scale-loading-motd` value is used.
+
+#### Docker Auto Scale Up/Down
+
+To use scale-to-zero with Docker containers:
+
+- Start mc-router with Docker discovery and scaling enabled, for example:
+
+  ```bash
+  docker run --rm \
+    -p 25565:25565 \
+    -v /var/run/docker.sock:/var/run/docker.sock:ro \
+    itzg/mc-router \
+    -in-docker -auto-scale-up -auto-scale-down -auto-scale-down-after=10m
+  ```
+
+- Label each Minecraft container with at least `mc-router.host`. You can also set per-container autoscale overrides using `mc-router.auto-scale-up` and `mc-router.auto-scale-down` labels.
+
+For usage with docker compose refer to the [examples/docker-autoscale/compose.yml](examples/docker-autoscale/compose.yml) or [examples/docker-autoscale/compose-minimal.yml](examples/docker-autoscale/compose-minimal.yml) examples.
+
+Behavior:
+
+- When a client connects to a labeled hostname and the container is stopped or paused, mc-router will start/unpause it and wait until it becomes reachable (up to ~60s).
+- While that wake-up is in progress and status pings are received, mc-router can return a loading MOTD (per-container override or `-auto-scale-loading-motd`).
+- When no clients remain connected and the idle timer elapses (`-auto-scale-down-after`), mc-router gracefully stops the container.
+
+Note: Docker Swarm discovery is supported; however, auto scale up/down is not yet supported for Swarm services.
 
 #### Example Docker deployment
 
@@ -234,8 +277,9 @@ For more information on the allow/deny list configuration, see the [json schema]
 ### Using Kubernetes Service auto-discovery
 
 When running `mc-router` as a Kubernetes Pod and you pass the `--in-kube-cluster` command-line argument, then it will automatically watch for any services annotated with
-- `mc-router.wroud.dev/externalServerName` : The value of the annotation will be registered as the external hostname Minecraft clients would used to connect to the routed service. The service is used as the routed backend. You can use more hostnames by splitting them with comma.
-- `mc-router.wroud.dev/defaultServer` : The service is used as the default if no other `externalServiceName` annotations applies.
+- `mc-router.wroud.dev/externalServerName` : The value of the annotation will be registered as the external hostname Minecraft clients would used to connect to the routed service. The service is used as the routed backend. You can use more hostnames by splitting them with comma or newline. Whitespace around commas is automatically trimmed. For example: `"host1.com,host2.com"`, `"host1.com, host2.com"`, or multi-line values.
+- `mc-router.wroud.dev/defaultServer` : When set to "true", the service is used as the default if no other `externalServiceName` annotations applies.
+- `mc-router.wroud.dev/proxyServerName` : When using a proxy server like Velocity or BungeeCord, this annotation specifies the proxy's address to route traffic to. The Service endpoint is still used for auto-scaling operations, allowing mc-router to scale the backend StatefulSet while routing client connections to the proxy. See [Using with Velocity/BungeeCord proxies](#using-with-velocitybungeecord-proxies) for details.
 
 By default, the router will watch all namespaces for those services; however, a specific namespace can be specified using the `KUBE_NAMESPACE` environment variable. The pod's own namespace could be set using:
 
@@ -275,6 +319,18 @@ metadata:
   annotations:
     "mc-router.wroud.dev/externalServerName": "external.host.name,other.host.name"
 ```
+or with newlines and optional whitespace:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: mc-forge
+  annotations:
+    "mc-router.itzg.me/externalServerName": |
+      external.host.name
+      other.host.name
+```
 
 The `Role` or `ClusterRole` bound to the service account should have the rules:
 
@@ -290,11 +346,13 @@ and if using StatefulSet auto-scaling additionally
 ```yaml
   - apiGroups: ["apps"]
     resources: ["statefulsets"]
-    verbs: ["watch","list","get","update"]
+    verbs: ["watch","list","patch"]
   - apiGroups: ["apps"]
     resources: ["statefulsets/scale"]
-    verbs: ["get","update"]
+    verbs: ["get"]
 ```
+
+**Note:** The `patch` verb is preferred for scaling operations as it provides atomic updates and prevents concurrency conflicts. For backward compatibility, mc-router will automatically fall back to using `get` + `update` if `patch` is not permitted, but this may result in occasional scaling conflicts in high-traffic scenarios.
 
 ### Service parsing
 
@@ -328,8 +386,8 @@ The `-auto-scale-up` flag argument makes the router "wake up" any stopped backen
 
 Both options require using `kind: StatefulSet` instead of `kind: Service` for the Minecraft backend servers.
 
-They also require the `ClusterRole` to permit `get` + `update` for `statefulsets` & `statefulsets/scale`,
-e.g. like this (or some equivalent more fine-grained one to only watch/list services+statefulsets, and only get+update scale):
+They also require the `ClusterRole` to permit `patch` for `statefulsets`,
+e.g. like this (or some equivalent more fine-grained one to only watch/list services+statefulsets, and patch statefulsets):
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -341,9 +399,14 @@ rules:
   resources: ["services"]
   verbs: ["watch","list"]
 - apiGroups: ["apps"]
-  resources: ["statefulsets", "statefulsets/scale"]
-  verbs: ["watch","list","get","update"]
+  resources: ["statefulsets"]
+  verbs: ["watch","list","patch"]
+- apiGroups: ["apps"]
+  resources: ["statefulsets/scale"]
+  verbs: ["get"]
 ```
+
+**Note:** The `patch` verb is preferred for scaling operations as it provides atomic updates and prevents concurrency conflicts. For backward compatibility, mc-router will automatically fall back to using `get` + `update` if `patch` is not permitted, but this may result in occasional scaling conflicts in high-traffic scenarios.
 
 Make sure to set `StatefulSet.metadata.name` and `StatefulSet.spec.serviceName` to the same value;
 otherwise, autoscaling will not trigger:
@@ -393,6 +456,96 @@ metadata:
     "mc-router.wroud.dev/autoScaleDown": "false"
 ```
 
+To override the MOTD shown when the server is scaled down or scaling up, you can use the following annotations on the `Service object`:
+- `mc-router.itzg.me/autoScaleAsleepMOTD`
+- `mc-router.itzg.me/autoScaleLoadingMOTD`
+
+You can also customize how long the router will wait for a scaling backend to become reachable (default: 60s):
+- `mc-router.itzg.me/autoScaleWaitTimeout` (e.g. `2m`, `30s`)
+
+Example server with custom MOTD and timeout:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: mc-forge
+  annotations:
+    "mc-router.itzg.me/externalServerName": "external.host.name"
+    "mc-router.itzg.me/autoScaleAsleepMOTD": "Server is sleeping"
+    "mc-router.itzg.me/autoScaleLoadingMOTD": "Server is loading"
+    "mc-router.itzg.me/autoScaleWaitTimeout": "90s"
+```
+
+#### Using with Velocity/BungeeCord proxies
+
+When using a proxy server like Velocity or BungeeCord, you can use the `mc-router.itzg.me/proxyServerName` annotation to route client connections to the proxy while still allowing mc-router to auto-scale the backend StatefulSet. This is useful when you want to:
+
+1. Route all client traffic through a proxy server (for cross-server features, permissions, etc.)
+2. Maintain auto-scaling capabilities for individual backend servers
+3. Separate routing (to proxy) from scaling (backend StatefulSet)
+
+Example configuration:
+
+```yaml
+# Velocity/BungeeCord proxy service (always running)
+apiVersion: v1
+kind: Service
+metadata:
+  name: velocity-proxy
+spec:
+  selector:
+    app: velocity
+  ports:
+    - name: minecraft
+      port: 25577
+---
+# Backend Minecraft server with auto-scaling
+apiVersion: v1
+kind: Service
+metadata:
+  name: mc-survival
+  annotations:
+    # External hostname that clients connect to
+    "mc-router.itzg.me/externalServerName": "survival.example.com"
+    # Route traffic to the proxy instead of directly to this service
+    "mc-router.itzg.me/proxyServerName": "velocity-proxy:25577"
+spec:
+  selector:
+    app: mc-survival
+  ports:
+    - name: minecraft
+      port: 25565
+---
+# Backend StatefulSet that can be scaled to zero
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mc-survival
+spec:
+  serviceName: mc-survival
+  replicas: 0  # Can be scaled from 0 to 1 automatically
+  selector:
+    matchLabels:
+      app: mc-survival
+  template:
+    metadata:
+      labels:
+        app: mc-survival
+    spec:
+      containers:
+        - name: mc
+          image: itzg/minecraft-server
+          # ... container configuration
+```
+
+In this configuration:
+- Clients connecting to `survival.example.com` are routed to `velocity-proxy:25577`
+- When a client connects, mc-router scales the `mc-survival` StatefulSet from 0 to 1 replicas
+- The proxy handles the actual game connections to the backend server
+- When idle, mc-router scales the StatefulSet back to 0 replicas
+
+**Note:** The proxy server must be configured to connect to the backend server at `mc-survival:25565` (the Service endpoint) and handle the case where the backend may not be available immediately during scale-up.
+
 ### Troubleshooting
 
 First and foremost, enable debug logs on mc-router by setting the `DEBUG` environment variable to "true". With that, the logs will be fairly verbose with information about incoming connections, handshake processing, backend service discovery, and backend connection establishment and teardown.
@@ -411,6 +564,14 @@ If the client reports "Connection refused" check:
 * `GET /routes` (with `Accept: application/json`)
 
   Retrieves the currently configured routes
+  ```json
+  {
+    "serverAddress": {
+      "backend": "HOST:PORT", // The address the client is routed to
+      "scalingTarget": "HOST:PORT" // The address of the actual minecraft server (will differ from backend when a proxy is configured)
+    }
+  }
+  ```
 
 * `POST /routes` (with `Content-Type: application/json`)
 
@@ -582,6 +743,11 @@ In this case the `status` is `"failed-backend-connection"` indicating that a bac
 }
 ```
 
+## Community Solutions
+
+- **[MC Router Discovery](https://github.com/Seedloaf/mc-router-discovery):** A lightweight sidecar to ensure mc-router is in sync with your list of running servers.
+- **[svc-router](https://github.com/JLSchuler99/svc-router):** A sidecar router that uses mc-router webhooks to route traffic for the Simple Voice Chat mod to the correct backend server.
+
 ## Development
 
 ### Building locally with Docker
@@ -612,6 +778,31 @@ When using Google Cloud (GCP), first create a _Docker Artifact Registry_,
 then add the _Artifact Registry Reader_ Role to the _Compute Engine default service account_ of your _GKE `clusterService` Account_ (to avoid error like "container mc-router is waiting to start: ...-docker.pkg.dev/... can't be pulled"),
 then use e.g. `gcloud auth configure-docker europe-docker.pkg.dev` or equivalent one time (to create a `~/.docker/config.json`),
 and then use e.g. `--default-repo=europe-docker.pkg.dev/YOUR-PROJECT/YOUR-ARTIFACT-REGISTRY` option for `skaffold dev`.
+
+### Running in devcontainer
+
+This approach is useful for testing changes for [Docker auto scaling](#docker-auto-scale-updown).
+
+With IntelliJ Ultimate, [use these instructions](https://www.jetbrains.com/help/idea/start-dev-container-inside-ide.html). It is recommended to use the option to mount sources.
+
+![Start devcontainer in IntelliJ](docs/intellij-devcontainer.png)
+
+Use the example compose file [in examples/docker-discovery](examples/docker-discovery/compose.yml) or similar with `network_mode` set to "bridge" to ensure that the mc-router instance running within the devcontainer can reach the backend servers.
+
+When applying the `mc-router.host` label to containers to be auto-discovered, it's easiest to use an external host of "localhost":
+
+```yaml
+  vanilla:
+    image: itzg/minecraft-server
+    environment:
+      EULA: "TRUE"
+    labels:
+      mc-router.host: "localhost"
+```
+
+Run one of the labeled services by clicking the run icon in the gutter.
+
+
 
 ### Performing snapshot release with Docker
 

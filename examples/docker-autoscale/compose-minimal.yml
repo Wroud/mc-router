@@ -1,22 +1,22 @@
 services:
   router:
-    image: wroud/mc-router
+    image: itzg/mc-router
     environment:
       IN_DOCKER: true
+      AUTO_SCALE_DOWN: true
+      AUTO_SCALE_UP: true
+      AUTO_SCALE_DOWN_AFTER: 2h
+      AUTO_SCALE_ASLEEP_MOTD: "Server is asleep. Join again to wake it up!"
     ports:
       - "25565:25565"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    # Matches MCs below
-    network_mode: bridge
   vanilla:
     image: itzg/minecraft-server
     environment:
       EULA: "TRUE"
     labels:
-      mc-router.host: "localhost"
-    # To allow for routing from devcontainer
-    network_mode: bridge
+      mc-router.host: "vanilla.example.com"
   paper:
     image: itzg/minecraft-server
     environment:
@@ -24,6 +24,4 @@ services:
       TYPE: PAPER
     labels:
       mc-router.host: "paper.example.com"
-    # To allow for routing from devcontainer
-    network_mode: bridge
 

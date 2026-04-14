@@ -7,14 +7,15 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	apps "k8s.io/api/apps/v1"
-	autoscaling "k8s.io/api/autoscaling/v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -22,10 +23,14 @@ import (
 )
 
 const (
-	AnnotationExternalServerName = "mc-router.wroud.dev/externalServerName"
-	AnnotationDefaultServer      = "mc-router.wroud.dev/defaultServer"
-	AnnotationAutoScaleUp        = "mc-router.wroud.dev/autoScaleUp"
-	AnnotationAutoScaleDown      = "mc-router.wroud.dev/autoScaleDown"
+	AnnotationExternalServerName   = "mc-router.wroud.dev/externalServerName"
+	AnnotationDefaultServer        = "mc-router.wroud.dev/defaultServer"
+	AnnotationAutoScaleUp          = "mc-router.wroud.dev/autoScaleUp"
+	AnnotationAutoScaleDown        = "mc-router.wroud.dev/autoScaleDown"
+	AnnotationProxyServerName      = "mc-router.wroud.dev/proxyServerName"
+	AnnotationAutoScaleAsleepMOTD  = "mc-router.wroud.dev/autoScaleAsleepMOTD"
+	AnnotationAutoScaleLoadingMOTD = "mc-router.wroud.dev/autoScaleLoadingMOTD"
+	AnnotationAutoScaleWaitTimeout = "mc-router.wroud.dev/autoScaleWaitTimeout"
 )
 
 // K8sWatcher is a RouteFinder that can find routes from kubernetes services.
@@ -184,9 +189,9 @@ func (w *K8sWatcher) handleUpdate(oldObj interface{}, newObj interface{}) {
 			"new": newRoutableService,
 		}).Debug("UPDATE")
 		if newRoutableService.externalServiceName != "" {
-			w.routesHandler.CreateMapping(newRoutableService.externalServiceName, newRoutableService.containerEndpoint, newRoutableService.autoScaleUp, newRoutableService.autoScaleDown)
+			w.routesHandler.CreateMapping(newRoutableService.externalServiceName, newRoutableService.containerEndpoint, newRoutableService.scalingTarget, newRoutableService.autoScaleUp, newRoutableService.autoScaleDown, newRoutableService.autoScaleAsleepMOTD, newRoutableService.autoScaleLoadingMOTD)
 		} else {
-			w.routesHandler.SetDefaultRoute(newRoutableService.containerEndpoint)
+			w.routesHandler.SetDefaultRoute(newRoutableService.containerEndpoint, newRoutableService.scalingTarget, newRoutableService.autoScaleUp, newRoutableService.autoScaleDown, newRoutableService.autoScaleAsleepMOTD, newRoutableService.autoScaleLoadingMOTD)
 		}
 	}
 }
@@ -201,7 +206,7 @@ func (w *K8sWatcher) handleDelete(obj interface{}) {
 			if routableService.externalServiceName != "" {
 				w.routesHandler.DeleteMapping(routableService.externalServiceName)
 			} else {
-				w.routesHandler.SetDefaultRoute("")
+				w.routesHandler.SetDefaultRoute("", "", nil, nil, "", "")
 			}
 		}
 	}
@@ -215,19 +220,22 @@ func (w *K8sWatcher) handleAdd(obj interface{}) {
 			logrus.WithField("routableService", routableService).Debug("ADD")
 
 			if routableService.externalServiceName != "" {
-				w.routesHandler.CreateMapping(routableService.externalServiceName, routableService.containerEndpoint, routableService.autoScaleUp, routableService.autoScaleDown)
+				w.routesHandler.CreateMapping(routableService.externalServiceName, routableService.containerEndpoint, routableService.scalingTarget, routableService.autoScaleUp, routableService.autoScaleDown, routableService.autoScaleAsleepMOTD, routableService.autoScaleLoadingMOTD)
 			} else {
-				w.routesHandler.SetDefaultRoute(routableService.containerEndpoint)
+				w.routesHandler.SetDefaultRoute(routableService.containerEndpoint, routableService.scalingTarget, routableService.autoScaleUp, routableService.autoScaleDown, routableService.autoScaleAsleepMOTD, routableService.autoScaleLoadingMOTD)
 			}
 		}
 	}
 }
 
 type routableService struct {
-	externalServiceName string
-	containerEndpoint   string
-	autoScaleUp         ScalerFunc
-	autoScaleDown       ScalerFunc
+	externalServiceName  string
+	containerEndpoint    string
+	scalingTarget        string
+	autoScaleUp          WakerFunc
+	autoScaleDown        SleeperFunc
+	autoScaleAsleepMOTD  string
+	autoScaleLoadingMOTD string
 }
 
 // obj is expected to be a *v1.Service
@@ -239,7 +247,7 @@ func (w *K8sWatcher) extractRoutableServices(obj interface{}) []*routableService
 
 	routableServices := make([]*routableService, 0)
 	if externalServiceName, exists := service.Annotations[AnnotationExternalServerName]; exists {
-		serviceNames := strings.Split(externalServiceName, ",")
+		serviceNames := SplitExternalHosts(externalServiceName)
 		for _, serviceName := range serviceNames {
 			routableServices = append(routableServices, w.buildDetails(service, serviceName))
 		}
@@ -272,22 +280,103 @@ func (w *K8sWatcher) buildDetails(service *core.Service, externalServiceName str
 	} else if len(mcPort) > 0 {
 		port = mcPort
 	}
+	endpoint := net.JoinHostPort(clusterIp, port)
+
+	routingEndpoint := endpoint
+	scalingTarget := endpoint // Default to service endpoint for scaling
+
+	if proxyServerName, exists := service.Annotations[AnnotationProxyServerName]; exists && proxyServerName != "" {
+		// Ensure the proxy address has a port
+		if _, _, err := net.SplitHostPort(proxyServerName); err != nil {
+			proxyServerName = net.JoinHostPort(proxyServerName, "25565")
+		}
+		routingEndpoint = proxyServerName
+		// scalingTarget remains the service endpoint (already set above)
+	}
+
+	autoScaleAsleepMOTD := ""
+	autoScaleLoadingMOTD := ""
+	waitTimeout := 60 * time.Second
+
+	if asleepMOTD, exists := service.Annotations[AnnotationAutoScaleAsleepMOTD]; exists && asleepMOTD != "" {
+		autoScaleAsleepMOTD = asleepMOTD
+	}
+
+	if loadingMOTD, exists := service.Annotations[AnnotationAutoScaleLoadingMOTD]; exists && loadingMOTD != "" {
+		autoScaleLoadingMOTD = loadingMOTD
+	}
+
+	if timeoutStr, exists := service.Annotations[AnnotationAutoScaleWaitTimeout]; exists && timeoutStr != "" {
+		if parsedTimeout, err := time.ParseDuration(timeoutStr); err == nil && parsedTimeout > 0 {
+			waitTimeout = parsedTimeout
+		} else {
+			logrus.WithError(err).WithField("annotation", AnnotationAutoScaleWaitTimeout).WithField("value", timeoutStr).Warn("Invalid wait timeout annotation, falling back to default 60s")
+		}
+	}
+
+	wakerFunc := w.buildScaleFunction(service, 0, 1)
 	rs := &routableService{
-		externalServiceName: externalServiceName,
-		containerEndpoint:   net.JoinHostPort(clusterIp, port),
-		autoScaleUp:         w.buildScaleFunction(service, 0, 1),
-		autoScaleDown:       w.buildScaleFunction(service, 1, 0),
+		externalServiceName:  externalServiceName,
+		containerEndpoint:    routingEndpoint,
+		scalingTarget:        scalingTarget,
+		autoScaleUp:          buildK8sWaker(routingEndpoint, wakerFunc, waitTimeout),
+		autoScaleDown:        w.buildScaleFunction(service, 1, 0),
+		autoScaleAsleepMOTD:  autoScaleAsleepMOTD,
+		autoScaleLoadingMOTD: autoScaleLoadingMOTD,
 	}
 	return rs
 }
 
-func (w *K8sWatcher) buildScaleFunction(service *core.Service, from int32, to int32) ScalerFunc {
+func buildK8sWaker(endpoint string, scaleUp SleeperFunc, waitTimeout time.Duration) WakerFunc {
+	if scaleUp == nil {
+		return nil
+	}
+	return func(ctx context.Context) (string, error) {
+		if err := scaleUp(ctx); err != nil {
+			return "", err
+		}
+
+		deadline := time.Now().Add(waitTimeout)
+		for {
+			conn, err := net.DialTimeout("tcp", endpoint, 1*time.Second)
+			if err == nil {
+				_ = conn.Close()
+				break
+			}
+			if ctx.Err() != nil {
+				return endpoint, ctx.Err()
+			}
+			if time.Now().After(deadline) {
+				return endpoint, fmt.Errorf("timeout waiting for K8s backend to become reachable at %s", endpoint)
+			}
+			select {
+			case <-ctx.Done():
+				return endpoint, ctx.Err()
+			case <-time.After(500 * time.Millisecond):
+			}
+		}
+
+		return endpoint, nil
+	}
+}
+
+// buildScaleFunction generates a SleeperFunc to scale StatefulSets based on specified criteria and service annotations.
+// Will return nil if the service should not be auto-scaled due config or annotation.
+func (w *K8sWatcher) buildScaleFunction(service *core.Service, from int32, to int32) SleeperFunc {
 	// Currently, annotations can only be used to opt-out of auto-scaling.
-	// However, this logic is prepared also for opt-in, as it returns a `ScalerFunc` when flags are false but annotations are set to `enabled`.
+	// However, this logic is prepared also for opt-in, as it returns a `SleeperFunc` when flags are false but annotations are set to `enabled`.
 	if from <= to {
 		enabled, exists := service.Annotations[AnnotationAutoScaleUp]
 		if exists {
-			if enabled == "false" {
+			enabledBool, err := strconv.ParseBool(strings.TrimSpace(enabled))
+			if err != nil {
+				logrus.WithFields(logrus.Fields{"service": service.Name}).
+					WithError(err).
+					Warnf("invalid value for %s annotation - disabling service auto-scale-up", AnnotationAutoScaleUp)
+				return nil
+			}
+
+			if !enabledBool {
 				return nil
 			}
 		} else {
@@ -299,7 +388,15 @@ func (w *K8sWatcher) buildScaleFunction(service *core.Service, from int32, to in
 	if from >= to {
 		enabled, exists := service.Annotations[AnnotationAutoScaleDown]
 		if exists {
-			if enabled == "false" {
+			enabledBool, err := strconv.ParseBool(strings.TrimSpace(enabled))
+			if err != nil {
+				logrus.WithFields(logrus.Fields{"service": service.Name}).
+					WithError(err).
+					Warnf("invalid value for %s annotation - disabling service auto-scale-down", AnnotationAutoScaleDown)
+				return nil
+			}
+
+			if !enabledBool {
 				return nil
 			}
 		} else {
@@ -312,6 +409,7 @@ func (w *K8sWatcher) buildScaleFunction(service *core.Service, from int32, to in
 	return func(ctx context.Context) error {
 		serviceName := service.Name
 		if statefulSetName, exists := w.mappings[serviceName]; exists {
+			// Get current replicas to check if scaling is needed
 			if scale, err := w.clientset.AppsV1().StatefulSets(service.Namespace).GetScale(ctx, statefulSetName, meta.GetOptions{}); err == nil {
 				replicas := scale.Status.Replicas
 				logrus.WithFields(logrus.Fields{
@@ -319,25 +417,57 @@ func (w *K8sWatcher) buildScaleFunction(service *core.Service, from int32, to in
 					"statefulSet": statefulSetName,
 					"replicas":    replicas,
 				}).Debug("StatefulSet of Service Replicas")
+
 				if replicas == from {
-					if _, err := w.clientset.AppsV1().StatefulSets(service.Namespace).UpdateScale(ctx, statefulSetName, &autoscaling.Scale{
-						ObjectMeta: meta.ObjectMeta{
-							Name:            scale.Name,
-							Namespace:       scale.Namespace,
-							UID:             scale.UID,
-							ResourceVersion: scale.ResourceVersion,
-						},
-						Spec: autoscaling.ScaleSpec{Replicas: to}}, meta.UpdateOptions{},
-					); err == nil {
+					// Use Patch instead of Update to avoid optimistic concurrency errors
+					// This doesn't require resourceVersion and is atomic
+					patchData := fmt.Sprintf(`{"spec":{"replicas":%d}}`, to)
+					_, err := w.clientset.AppsV1().StatefulSets(service.Namespace).Patch(
+						ctx,
+						statefulSetName,
+						types.StrategicMergePatchType,
+						[]byte(patchData),
+						meta.PatchOptions{},
+					)
+					if err == nil {
 						logrus.WithFields(logrus.Fields{
 							"service":     serviceName,
 							"statefulSet": statefulSetName,
 							"replicas":    replicas,
 						}).Infof("StatefulSet Replicas Autoscaled from %d to %d", from, to)
-					} else {
-						return errors.Wrapf(err, "UpdateScale for Replicas=%d failed for StatefulSet: %s", to, statefulSetName)
+						return nil
 					}
+
+					// Fallback to UpdateScale if Patch fails due to RBAC permissions
+					// This maintains backward compatibility with existing RBAC configurations
+					if strings.Contains(err.Error(), "forbidden") {
+						logrus.WithFields(logrus.Fields{
+							"service":     serviceName,
+							"statefulSet": statefulSetName,
+						}).Warn("Patch operation forbidden - falling back to UpdateScale. Consider updating RBAC to allow 'patch' verb for better concurrency handling")
+
+						scale.Spec.Replicas = to
+						if _, updateErr := w.clientset.AppsV1().StatefulSets(service.Namespace).UpdateScale(
+							ctx,
+							statefulSetName,
+							scale,
+							meta.UpdateOptions{},
+						); updateErr == nil {
+							logrus.WithFields(logrus.Fields{
+								"service":     serviceName,
+								"statefulSet": statefulSetName,
+								"replicas":    replicas,
+							}).Infof("StatefulSet Replicas Autoscaled from %d to %d (via UpdateScale fallback)", from, to)
+							return nil
+						} else {
+							return errors.Wrapf(updateErr, "UpdateScale fallback for Replicas=%d failed for StatefulSet: %s", to, statefulSetName)
+						}
+					}
+
+					return errors.Wrapf(err, "Patch for Replicas=%d failed for StatefulSet: %s", to, statefulSetName)
 				}
+				// Replicas already at desired state
+				return nil
 			} else {
 				return fmt.Errorf("GetScale failed for StatefulSet %s: %w", statefulSetName, err)
 			}

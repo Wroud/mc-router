@@ -45,7 +45,7 @@ func (r *routesConfigLoader) Load(routesConfigFileName string) error {
 	}
 
 	Routes.RegisterAll(config.Mappings)
-	Routes.SetDefaultRoute(config.DefaultServer)
+	Routes.SetDefaultRoute(config.DefaultServer, "", nil, nil, "", "")
 	Routes.SetFallbackRoute(config.FallbackServer)
 	return nil
 }
@@ -64,7 +64,7 @@ func (r *routesConfigLoader) Reload() error {
 	logrus.WithField("routesConfig", r.fileName).Info("Re-loading routes config file")
 	Routes.Reset()
 	Routes.RegisterAll(config.Mappings)
-	Routes.SetDefaultRoute(config.DefaultServer)
+	Routes.SetDefaultRoute(config.DefaultServer, "", nil, nil, "", "")
 	Routes.SetFallbackRoute(config.FallbackServer)
 
 	return nil
@@ -138,8 +138,9 @@ func (r *routesConfigLoader) SaveRoutes() {
 		return
 	}
 
+	server, _, _, _ := Routes.GetDefaultRoute()
 	err := r.writeFile(&RoutesConfigSchema{
-		DefaultServer:  Routes.GetDefaultRoute(),
+		DefaultServer:  server,
 		FallbackServer: Routes.GetFallbackRoute(),
 		Mappings:       Routes.GetMappings(),
 	})

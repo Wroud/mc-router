@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"expvar"
 	"net/http"
@@ -37,8 +38,19 @@ func registerApiRoutes(apiRoutes *mux.Router) {
 }
 
 func routesListHandler(writer http.ResponseWriter, _ *http.Request) {
+	type serverRoute = struct {
+		Backend       string `json:"backend"`
+		ScalingTarget string `json:"scalingTarget"`
+	}
+
 	mappings := Routes.GetMappings()
-	bytes, err := json.Marshal(mappings)
+	routes := make(map[string]serverRoute, len(mappings))
+	for k := range mappings {
+		backend, address, scalingTarget, _, _ := Routes.FindBackendForServerAddress(context.Background(), k)
+		routes[address] = serverRoute{Backend: backend, ScalingTarget: scalingTarget}
+	}
+
+	bytes, err := json.Marshal(routes)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to marshal mappings")
 		writer.WriteHeader(http.StatusInternalServerError)
@@ -81,7 +93,7 @@ func routesCreateHandler(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	Routes.CreateMapping(definition.ServerAddress, definition.Backend, EmptyScalerFunc, EmptyScalerFunc)
+	Routes.CreateMapping(definition.ServerAddress, definition.Backend, "", nil, nil, "", "")
 	RoutesConfigLoader.SaveRoutes()
 	writer.WriteHeader(http.StatusCreated)
 }
@@ -102,7 +114,7 @@ func routesSetDefault(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	Routes.SetDefaultRoute(body.Backend)
+	Routes.SetDefaultRoute(body.Backend, "", nil, nil, "", "")
 	RoutesConfigLoader.SaveRoutes()
 	writer.WriteHeader(http.StatusOK)
 }

@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+
 	"github.com/itzg/go-flagsfiller"
 	"github.com/wroud/mc-router/server"
 	"github.com/sirupsen/logrus"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 var (
@@ -22,9 +24,10 @@ func showVersion() {
 }
 
 type CliConfig struct {
-	Version bool `usage:"Output version and exit"`
-	Debug   bool `usage:"Enable debug logs"`
-	Trace   bool `usage:"Enable trace logs"`
+	Version  bool         `usage:"Output version and exit"`
+	Debug    bool         `usage:"Enable debug logs"`
+	Trace    bool         `usage:"Enable trace logs"`
+	LogLevel logrus.Level `usage:"Set a specific log filtering level, such as debug, info, warn, error\nIgnored when --debug or --trace is used" default:"info"`
 
 	ServerConfig server.Config `flatten:"true"`
 }
@@ -47,38 +50,41 @@ func main() {
 	} else if cliConfig.Debug {
 		logrus.SetLevel(logrus.DebugLevel)
 		logrus.Debug("Debug logs enabled")
+	} else {
+		logrus.SetLevel(cliConfig.LogLevel)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	signal.Notify(signals, syscall.SIGHUP)
 
 	s, err := server.NewServer(ctx, &cliConfig.ServerConfig)
 	if err != nil {
 		logrus.WithError(err).Fatal("Could not setup server")
 	}
 
-	go s.Run()
+	var wg sync.WaitGroup
+	wg.Go(s.Run)
 
+signalsLoop:
 	for {
 		select {
-		case <-s.Done():
-			return
+		case <-ctx.Done():
+			break signalsLoop
 
 		case sig := <-signals:
 			switch sig {
 			case syscall.SIGHUP:
 				s.ReloadConfig()
 
-			case syscall.SIGINT, syscall.SIGTERM:
-				cancel()
-				// but wait for the server to be done
-
 			default:
 				logrus.WithField("signal", sig).Warn("Received unexpected signal")
 			}
 		}
 	}
+
+	logrus.Info("Stopping")
+	wg.Wait()
 }

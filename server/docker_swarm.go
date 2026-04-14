@@ -19,27 +19,37 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var DockerSwarmWatcher IDockerWatcher = &dockerSwarmWatcherImpl{}
+func NewDockerSwarmWatcher(socket string, timeout time.Duration, refreshInterval time.Duration, autoScaleUp bool, autoScaleDown bool, dockerApiVersion string) IDockerWatcher {
+	return &dockerSwarmWatcherImpl{
+		config: dockerWatcherConfig{
+			socket:          socket,
+			timeout:         timeout,
+			refreshInterval: refreshInterval,
+			autoScaleUp:     autoScaleUp,
+			autoScaleDown:   autoScaleDown,
+			apiVersion:      dockerApiVersion,
+		},
+	}
+}
 
 type dockerSwarmWatcherImpl struct {
 	sync.RWMutex
-	autoScaleUp   bool
-	autoScaleDown bool
-	client        *client.Client
+	config dockerWatcherConfig
+	client *client.Client
 }
 
-func (w *dockerSwarmWatcherImpl) makeWakerFunc(_ *routableService) ScalerFunc {
-	if !w.autoScaleUp {
+func (w *dockerSwarmWatcherImpl) makeWakerFunc(_ *routableService) WakerFunc {
+	if !w.config.autoScaleUp {
 		return nil
 	}
-	return func(ctx context.Context) error {
+	return func(ctx context.Context) (string, error) {
 		logrus.Fatal("Auto scale up is not yet supported for docker swarm")
-		return nil
+		return "", nil
 	}
 }
 
-func (w *dockerSwarmWatcherImpl) makeSleeperFunc(_ *routableService) ScalerFunc {
-	if !w.autoScaleDown {
+func (w *dockerSwarmWatcherImpl) makeSleeperFunc(_ *routableService) SleeperFunc {
+	if !w.config.autoScaleDown {
 		return nil
 	}
 	return func(ctx context.Context) error {
@@ -48,22 +58,16 @@ func (w *dockerSwarmWatcherImpl) makeSleeperFunc(_ *routableService) ScalerFunc 
 	}
 }
 
-func (w *dockerSwarmWatcherImpl) Start(ctx context.Context, socket string, timeoutSeconds int, refreshIntervalSeconds int, autoScaleUp bool, autoScaleDown bool) error {
+func (w *dockerSwarmWatcherImpl) Start(ctx context.Context) error {
 	var err error
 
-	w.autoScaleUp = autoScaleUp
-	w.autoScaleDown = autoScaleDown
-
-	timeout := time.Duration(timeoutSeconds) * time.Second
-	refreshInterval := time.Duration(refreshIntervalSeconds) * time.Second
-
 	opts := []client.Opt{
-		client.WithHost(socket),
-		client.WithTimeout(timeout),
+		client.WithHost(w.config.socket),
+		client.WithTimeout(w.config.timeout),
 		client.WithHTTPHeaders(map[string]string{
 			"User-Agent": "mc-router ",
 		}),
-		client.WithVersion(DockerAPIVersion),
+		client.WithAPIVersionNegotiation(),
 	}
 
 	w.client, err = client.NewClientWithOpts(opts...)
@@ -71,7 +75,7 @@ func (w *dockerSwarmWatcherImpl) Start(ctx context.Context, socket string, timeo
 		return err
 	}
 
-	ticker := time.NewTicker(refreshInterval)
+	ticker := time.NewTicker(w.config.refreshInterval)
 	serviceMap := map[string]*routableService{}
 
 	logrus.Trace("Performing initial listing of Docker containers")
@@ -82,10 +86,12 @@ func (w *dockerSwarmWatcherImpl) Start(ctx context.Context, socket string, timeo
 
 	for _, s := range initialServices {
 		serviceMap[s.externalServiceName] = s
+		wakerFunc := w.makeWakerFunc(s)
+		sleeperFunc := w.makeSleeperFunc(s)
 		if s.externalServiceName != "" {
-			Routes.CreateMapping(s.externalServiceName, s.containerEndpoint, w.makeWakerFunc(s), w.makeSleeperFunc(s))
+			Routes.CreateMapping(s.externalServiceName, s.containerEndpoint, "", wakerFunc, sleeperFunc, "", "")
 		} else {
-			Routes.SetDefaultRoute(s.containerEndpoint)
+			Routes.SetDefaultRoute(s.containerEndpoint, "", wakerFunc, sleeperFunc, "", "")
 		}
 	}
 
@@ -104,18 +110,22 @@ func (w *dockerSwarmWatcherImpl) Start(ctx context.Context, socket string, timeo
 					if oldRs, ok := serviceMap[rs.externalServiceName]; !ok {
 						serviceMap[rs.externalServiceName] = rs
 						logrus.WithField("routableService", rs).Debug("ADD")
+						wakerFunc := w.makeWakerFunc(rs)
+						sleeperFunc := w.makeSleeperFunc(rs)
 						if rs.externalServiceName != "" {
-							Routes.CreateMapping(rs.externalServiceName, rs.containerEndpoint, w.makeWakerFunc(rs), w.makeSleeperFunc(rs))
+							Routes.CreateMapping(rs.externalServiceName, rs.containerEndpoint, "", wakerFunc, sleeperFunc, "", "")
 						} else {
-							Routes.SetDefaultRoute(rs.containerEndpoint)
+							Routes.SetDefaultRoute(rs.containerEndpoint, "", wakerFunc, sleeperFunc, "", "")
 						}
 					} else if oldRs.containerEndpoint != rs.containerEndpoint {
 						serviceMap[rs.externalServiceName] = rs
+						wakerFunc := w.makeWakerFunc(rs)
+						sleeperFunc := w.makeSleeperFunc(rs)
 						if rs.externalServiceName != "" {
 							Routes.DeleteMapping(rs.externalServiceName)
-							Routes.CreateMapping(rs.externalServiceName, rs.containerEndpoint, w.makeWakerFunc(rs), w.makeSleeperFunc(rs))
+							Routes.CreateMapping(rs.externalServiceName, rs.containerEndpoint, "", wakerFunc, sleeperFunc, "", "")
 						} else {
-							Routes.SetDefaultRoute(rs.containerEndpoint)
+							Routes.SetDefaultRoute(rs.containerEndpoint, "", wakerFunc, sleeperFunc, "", "")
 						}
 						logrus.WithFields(logrus.Fields{"old": oldRs, "new": rs}).Debug("UPDATE")
 					}
@@ -127,7 +137,7 @@ func (w *dockerSwarmWatcherImpl) Start(ctx context.Context, socket string, timeo
 						if rs.externalServiceName != "" {
 							Routes.DeleteMapping(rs.externalServiceName)
 						} else {
-							Routes.SetDefaultRoute("")
+							Routes.SetDefaultRoute("", "", nil, nil, "", "")
 						}
 						logrus.WithField("routableService", rs).Debug("DELETE")
 					}
@@ -247,7 +257,7 @@ func (w *dockerSwarmWatcherImpl) parseServiceData(service *swarm.Service, networ
 					Warnf("ignoring service with duplicate %s", DockerRouterLabelHost)
 				return
 			}
-			data.hosts = strings.Split(value, ",")
+			data.hosts = SplitExternalHosts(value)
 		}
 		if key == DockerRouterLabelPort {
 			if data.port != 0 {
