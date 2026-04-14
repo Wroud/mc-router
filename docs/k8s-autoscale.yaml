@@ -270,7 +270,7 @@ metadata:
   name: minecraft-servername-deployment
   namespace: default
   annotations:
-    "mc-router.wroud.me/externalServerName": "your-awesome-server.public-domain.com"
+    "mc-router.wroud.dev/externalServerName": "your-awesome-server.public-domain.com"
 spec:
   ports:
   - port: 25565

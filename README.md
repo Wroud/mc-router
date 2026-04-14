@@ -1,7 +1,7 @@
-[![GitHub issues](https://img.shields.io/github/issues/itzg/mc-router.svg)](https://github.com/itzg/mc-router/issues)
-[![Docker Pulls](https://img.shields.io/docker/pulls/itzg/mc-router.svg)](https://cloud.docker.com/u/itzg/repository/docker/itzg/mc-router)
-[![test](https://github.com/itzg/mc-router/actions/workflows/test.yml/badge.svg)](https://github.com/itzg/mc-router/actions/workflows/test.yml)
-[![GitHub release](https://img.shields.io/github/release/itzg/mc-router.svg)](https://github.com/itzg/mc-router/releases)
+[![GitHub issues](https://img.shields.io/github/issues/Wroud/mc-router.svg)](https://github.com/Wroud/mc-router/issues)
+[![Docker Pulls](https://img.shields.io/docker/pulls/wroud/mc-router.svg)](https://hub.docker.com/r/wroud/mc-router)
+[![test](https://github.com/Wroud/mc-router/actions/workflows/test.yml/badge.svg)](https://github.com/Wroud/mc-router/actions/workflows/test.yml)
+[![GitHub release](https://img.shields.io/github/release/Wroud/mc-router.svg)](https://github.com/Wroud/mc-router/releases)
 [![Discord](https://img.shields.io/discord/660567679458869252?label=discord)](https://discord.gg/JK2v3rJ9ec)
 [![Buy me a coffee](https://img.shields.io/badge/Donate-Buy%20me%20a%20coffee-orange.svg)](https://www.buymeacoffee.com/itzg)
 
@@ -107,7 +107,7 @@ Some other features included:
 
 ## Docker Multi-Architecture Image
 
-The [multi-architecture image published at Docker Hub](https://hub.docker.com/repository/docker/itzg/mc-router) supports amd64, arm64, and arm32v6 (i.e. RaspberryPi).
+The [multi-architecture image published at Docker Hub](https://hub.docker.com/r/wroud/mc-router) supports amd64, arm64, and arm32v6 (i.e. RaspberryPi).
 
 ## Docker Compose Usage
 
@@ -125,7 +125,7 @@ services:
       EULA: "TRUE"
       TYPE: FORGE
   router:
-    image: ${MC_ROUTER_IMAGE:-itzg/mc-router}
+    image: ${MC_ROUTER_IMAGE:-wroud/mc-router}
     depends_on:
       - forge
       - vanilla
@@ -234,8 +234,8 @@ For more information on the allow/deny list configuration, see the [json schema]
 ### Using Kubernetes Service auto-discovery
 
 When running `mc-router` as a Kubernetes Pod and you pass the `--in-kube-cluster` command-line argument, then it will automatically watch for any services annotated with
-- `mc-router.itzg.me/externalServerName` : The value of the annotation will be registered as the external hostname Minecraft clients would used to connect to the routed service. The service is used as the routed backend. You can use more hostnames by splitting them with comma.
-- `mc-router.itzg.me/defaultServer` : The service is used as the default if no other `externalServiceName` annotations applies.
+- `mc-router.wroud.dev/externalServerName` : The value of the annotation will be registered as the external hostname Minecraft clients would used to connect to the routed service. The service is used as the routed backend. You can use more hostnames by splitting them with comma.
+- `mc-router.wroud.dev/defaultServer` : The service is used as the default if no other `externalServiceName` annotations applies.
 
 By default, the router will watch all namespaces for those services; however, a specific namespace can be specified using the `KUBE_NAMESPACE` environment variable. The pod's own namespace could be set using:
 
@@ -249,7 +249,7 @@ By default, the router will watch all namespaces for those services; however, a 
 For example, start `mc-router`'s container spec with
 
 ```yaml
-image: itzg/mc-router
+image: wroud/mc-router
 name: mc-router
 args: ["--in-kube-cluster"]
 ```
@@ -262,7 +262,7 @@ kind: Service
 metadata:
   name: mc-forge
   annotations:
-    "mc-router.itzg.me/externalServerName": "external.host.name"
+    "mc-router.wroud.dev/externalServerName": "external.host.name"
 ```
 
 you can use multiple host names:
@@ -273,7 +273,7 @@ kind: Service
 metadata:
   name: mc-forge
   annotations:
-    "mc-router.itzg.me/externalServerName": "external.host.name,other.host.name"
+    "mc-router.wroud.dev/externalServerName": "external.host.name,other.host.name"
 ```
 
 The `Role` or `ClusterRole` bound to the service account should have the rules:
@@ -309,10 +309,10 @@ For the port it will look in `spec.ports` for a port named `mc-router`, if not p
 * Declares a service account with access to watch and list services
 * Declares `--in-kube-cluster` in the `mc-router` container arguments
 * Two "backend" Minecraft servers are declared each with an
-  `"mc-router.itzg.me/externalServerName"` annotation that declares their external server name(s)
+  `"mc-router.wroud.dev/externalServerName"` annotation that declares their external server name(s)
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/itzg/mc-router/master/docs/k8s-example-auto.yaml
+kubectl apply -f https://raw.githubusercontent.com/Wroud/mc-router/master/docs/k8s-example-auto.yaml
 ```
 
 ![](docs/example-deployment-auto.drawio.png)
@@ -354,8 +354,8 @@ kind: Service
 metadata:
   name: mc-forge
   annotations:
-    "mc-router.itzg.me/defaultServer": "true"
-    "mc-router.itzg.me/externalServerName": "external.host.name"
+    "mc-router.wroud.dev/defaultServer": "true"
+    "mc-router.wroud.dev/externalServerName": "external.host.name"
 spec:
   type: ClusterIP
 ---
@@ -378,8 +378,8 @@ spec:
 ```
 
 You can also opt-out of auto-scaling per server by setting the following annotations on the `Service` object:
-- `mc-router.itzg.me/autoScaleUp=false`
-- `mc-router.itzg.me/autoScaleDown=false`
+- `mc-router.wroud.dev/autoScaleUp=false`
+- `mc-router.wroud.dev/autoScaleDown=false`
 
 Example server with auto-scaling disabled explicitly:
 ```yaml
@@ -388,9 +388,9 @@ kind: Service
 metadata:
   name: mc-forge
   annotations:
-    "mc-router.itzg.me/externalServerName": "external.host.name"
-    "mc-router.itzg.me/autoScaleUp": "false"
-    "mc-router.itzg.me/autoScaleDown": "false"
+    "mc-router.wroud.dev/externalServerName": "external.host.name"
+    "mc-router.wroud.dev/autoScaleUp": "false"
+    "mc-router.wroud.dev/autoScaleDown": "false"
 ```
 
 ### Troubleshooting
@@ -463,7 +463,7 @@ services:
       - mc-data:/data
     # No port mapping since mc-router connects over compose network
   router:
-    image: itzg/mc-router
+    image: wroud/mc-router
     environment:
       DEFAULT: mc:25565
       NGROK_TOKEN: ${NGROK_TOKEN}

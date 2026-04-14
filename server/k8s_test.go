@@ -70,14 +70,14 @@ func TestK8sWatcherImpl_handleAddThenUpdate(t *testing.T) {
 		{
 			name: "a to b",
 			initial: svcAndScenarios{
-				svc: ` {"metadata": {"annotations": {"mc-router.wroud.me/externalServerName": "a.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
+				svc: ` {"metadata": {"annotations": {"mc-router.wroud.dev/externalServerName": "a.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
 				scenarios: []scenario{
 					{server: "a.com", backend: "1.1.1.1:25565"},
 					{server: "b.com", backend: ""},
 				},
 			},
 			update: svcAndScenarios{
-				svc: ` {"metadata": {"annotations": {"mc-router.wroud.me/externalServerName": "b.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
+				svc: ` {"metadata": {"annotations": {"mc-router.wroud.dev/externalServerName": "b.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
 				scenarios: []scenario{
 					{server: "a.com", backend: ""},
 					{server: "b.com", backend: "1.1.1.1:25565"},
@@ -87,14 +87,14 @@ func TestK8sWatcherImpl_handleAddThenUpdate(t *testing.T) {
 		{
 			name: "a to a,b",
 			initial: svcAndScenarios{
-				svc: ` {"metadata": {"annotations": {"mc-router.wroud.me/externalServerName": "a.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
+				svc: ` {"metadata": {"annotations": {"mc-router.wroud.dev/externalServerName": "a.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
 				scenarios: []scenario{
 					{server: "a.com", backend: "1.1.1.1:25565"},
 					{server: "b.com", backend: ""},
 				},
 			},
 			update: svcAndScenarios{
-				svc: ` {"metadata": {"annotations": {"mc-router.wroud.me/externalServerName": "a.com,b.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
+				svc: ` {"metadata": {"annotations": {"mc-router.wroud.dev/externalServerName": "a.com,b.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
 				scenarios: []scenario{
 					{server: "a.com", backend: "1.1.1.1:25565"},
 					{server: "b.com", backend: "1.1.1.1:25565"},
@@ -104,14 +104,14 @@ func TestK8sWatcherImpl_handleAddThenUpdate(t *testing.T) {
 		{
 			name: "a,b to b",
 			initial: svcAndScenarios{
-				svc: ` {"metadata": {"annotations": {"mc-router.wroud.me/externalServerName": "a.com,b.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
+				svc: ` {"metadata": {"annotations": {"mc-router.wroud.dev/externalServerName": "a.com,b.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
 				scenarios: []scenario{
 					{server: "a.com", backend: "1.1.1.1:25565"},
 					{server: "b.com", backend: "1.1.1.1:25565"},
 				},
 			},
 			update: svcAndScenarios{
-				svc: ` {"metadata": {"annotations": {"mc-router.wroud.me/externalServerName": "b.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
+				svc: ` {"metadata": {"annotations": {"mc-router.wroud.dev/externalServerName": "b.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
 				scenarios: []scenario{
 					{server: "a.com", backend: ""},
 					{server: "b.com", backend: "1.1.1.1:25565"},
@@ -172,7 +172,7 @@ func TestK8sWatcherImpl_handleAddThenDelete(t *testing.T) {
 		{
 			name: "single",
 			initial: svcAndScenarios{
-				svc: ` {"metadata": {"annotations": {"mc-router.wroud.me/externalServerName": "a.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
+				svc: ` {"metadata": {"annotations": {"mc-router.wroud.dev/externalServerName": "a.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
 				scenarios: []scenario{
 					{server: "a.com", backend: "1.1.1.1:25565"},
 					{server: "b.com", backend: ""},
@@ -186,7 +186,7 @@ func TestK8sWatcherImpl_handleAddThenDelete(t *testing.T) {
 		{
 			name: "multi",
 			initial: svcAndScenarios{
-				svc: ` {"metadata": {"annotations": {"mc-router.wroud.me/externalServerName": "a.com,b.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
+				svc: ` {"metadata": {"annotations": {"mc-router.wroud.dev/externalServerName": "a.com,b.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
 				scenarios: []scenario{
 					{server: "a.com", backend: "1.1.1.1:25565"},
 					{server: "b.com", backend: "1.1.1.1:25565"},
@@ -246,14 +246,14 @@ func TestK8s_externalName(t *testing.T) {
 		{
 			name: "typeChange",
 			initial: svcAndScenarios{
-				svc: ` {"metadata": {"annotations": {"mc-router.wroud.me/externalServerName": "a.com"}}, "spec":{"type":"ExternalName", "externalName": "mc-server.com"}}`,
+				svc: ` {"metadata": {"annotations": {"mc-router.wroud.dev/externalServerName": "a.com"}}, "spec":{"type":"ExternalName", "externalName": "mc-server.com"}}`,
 				scenarios: []scenario{
 					{server: "a.com", backend: "mc-server.com:25565"},
 					{server: "b.com", backend: ""},
 				},
 			},
 			update: svcAndScenarios{
-				svc: ` {"metadata": {"annotations": {"mc-router.wroud.me/externalServerName": "a.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
+				svc: ` {"metadata": {"annotations": {"mc-router.wroud.dev/externalServerName": "a.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
 				scenarios: []scenario{
 					{server: "a.com", backend: "1.1.1.1:25565"},
 					{server: "b.com", backend: ""},
@@ -263,14 +263,14 @@ func TestK8s_externalName(t *testing.T) {
 		{
 			name: "typeAndServerChange",
 			initial: svcAndScenarios{
-				svc: ` {"metadata": {"annotations": {"mc-router.wroud.me/externalServerName": "a.com"}}, "spec":{"type":"ExternalName", "externalName": "mc-server.com"}}`,
+				svc: ` {"metadata": {"annotations": {"mc-router.wroud.dev/externalServerName": "a.com"}}, "spec":{"type":"ExternalName", "externalName": "mc-server.com"}}`,
 				scenarios: []scenario{
 					{server: "a.com", backend: "mc-server.com:25565"},
 					{server: "b.com", backend: ""},
 				},
 			},
 			update: svcAndScenarios{
-				svc: ` {"metadata": {"annotations": {"mc-router.wroud.me/externalServerName": "b.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
+				svc: ` {"metadata": {"annotations": {"mc-router.wroud.dev/externalServerName": "b.com"}}, "spec":{"clusterIP": "1.1.1.1"}}`,
 				scenarios: []scenario{
 					{server: "a.com", backend: ""},
 					{server: "b.com", backend: "1.1.1.1:25565"},
@@ -280,14 +280,14 @@ func TestK8s_externalName(t *testing.T) {
 		{
 			name: "externalNameChange",
 			initial: svcAndScenarios{
-				svc: ` {"metadata": {"annotations": {"mc-router.wroud.me/externalServerName": "a.com,b.com"}}, "spec":{"type":"ExternalName", "externalName": "mc-server.com"}}`,
+				svc: ` {"metadata": {"annotations": {"mc-router.wroud.dev/externalServerName": "a.com,b.com"}}, "spec":{"type":"ExternalName", "externalName": "mc-server.com"}}`,
 				scenarios: []scenario{
 					{server: "a.com", backend: "mc-server.com:25565"},
 					{server: "b.com", backend: "mc-server.com:25565"},
 				},
 			},
 			update: svcAndScenarios{
-				svc: ` {"metadata": {"annotations": {"mc-router.wroud.me/externalServerName": "a.com,b.com"}}, "spec":{"type":"ExternalName", "externalName": "1.1.1.1"}}`,
+				svc: ` {"metadata": {"annotations": {"mc-router.wroud.dev/externalServerName": "a.com,b.com"}}, "spec":{"type":"ExternalName", "externalName": "1.1.1.1"}}`,
 				scenarios: []scenario{
 					{server: "a.com", backend: "1.1.1.1:25565"},
 					{server: "b.com", backend: "1.1.1.1:25565"},

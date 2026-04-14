@@ -22,10 +22,10 @@ import (
 )
 
 const (
-	AnnotationExternalServerName = "mc-router.wroud.me/externalServerName"
-	AnnotationDefaultServer      = "mc-router.wroud.me/defaultServer"
-	AnnotationAutoScaleUp        = "mc-router.wroud.me/autoScaleUp"
-	AnnotationAutoScaleDown      = "mc-router.wroud.me/autoScaleDown"
+	AnnotationExternalServerName = "mc-router.wroud.dev/externalServerName"
+	AnnotationDefaultServer      = "mc-router.wroud.dev/defaultServer"
+	AnnotationAutoScaleUp        = "mc-router.wroud.dev/autoScaleUp"
+	AnnotationAutoScaleDown      = "mc-router.wroud.dev/autoScaleDown"
 )
 
 // K8sWatcher is a RouteFinder that can find routes from kubernetes services.
