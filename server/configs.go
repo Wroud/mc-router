@@ -27,19 +27,19 @@ type NgrokConfig struct {
 }
 
 type Config struct {
-	Port                  int               `default:"25565" usage:"The [port] bound to listen for Minecraft client connections"`
-	Default               string            `usage:"host:port of a default Minecraft server to use when mapping not found"`
-	FallbackRoute         string            `usage:"host:port of a fallback Minecraft server to use when mapped server is unavailable"`
-	Mapping               map[string]string `usage:"Comma or newline delimited or repeated mappings of externalHostname=host:port"`
-	ApiBinding            string            `usage:"The [host:port] bound for servicing API requests"`
-	CpuProfile            string            `usage:"Enables CPU profiling and writes to given path"`
+	Port                   int               `default:"25565" usage:"The [port] bound to listen for Minecraft client connections"`
+	Default                string            `usage:"host:port of a default Minecraft server to use when mapping not found"`
+	FallbackRoute          string            `usage:"host:port of a fallback Minecraft server to use when mapped server is unavailable"`
+	Mapping                map[string]string `usage:"Comma or newline delimited or repeated mappings of externalHostname=host:port"`
+	ApiBinding             string            `usage:"The [host:port] bound for servicing API requests"`
+	CpuProfile             string            `usage:"Enables CPU profiling and writes to given path"`
 	ConnectionRateLimit    int               `default:"1" usage:"Max number of connections to allow per second"`
 	InKubeCluster          bool              `usage:"Use in-cluster Kubernetes config"`
 	KubeConfig             string            `usage:"The path to a Kubernetes configuration file"`
 	KubeNamespace          string            `usage:"The namespace to watch or blank for all, which is the default"`
 	InDocker               bool              `usage:"Use Docker service discovery"`
 	InDockerSwarm          bool              `usage:"Use Docker Swarm service discovery"`
-	DockerSocket           string            `default:"unix:///var/run/docker.sock" usage:"Path to Docker socket to use"`
+	DockerSocket           string            `usage:"Path to Docker socket to use"`
 	DockerTimeout          time.Duration     `usage:"Timeout (as duration) for the Docker integrations"`
 	DockerRefreshInterval  time.Duration     `default:"15s" usage:"Refresh interval (as duration) for the Docker integrations"`
 	DockerApiVersion       string            `usage:"Instead of auto-negotiating, use specific Docker API version"`

@@ -36,103 +36,27 @@ archives:
     files:
       - LICENSE*
       - README*
-dockers:
-  - image_templates:
-      - "wroud/{{ .ProjectName }}:{{ .Version }}-amd64"
-      - "wroud/{{ .ProjectName }}:latest-amd64"
-    dockerfile: Dockerfile.release
-    goarch: amd64
-    use: buildx
-    build_flag_templates:
-      - --platform
+dockers_v2:
+  - images:
+      - "wroud/{{ .ProjectName }}"
+      - "ghcr.io/wroud/{{ .ProjectName }}"
+    dockerfile: Dockerfile.release  
+    platforms:
       - linux/amd64
-      - --load
-      - --label=org.opencontainers.image.version={{ .Version }}
-      - --label=org.opencontainers.image.revision={{ .FullCommit }}
-  - image_templates:
-      - "wroud/{{ .ProjectName }}:{{ .Version }}-arm64"
-      - "wroud/{{ .ProjectName }}:latest-arm64"
-    dockerfile: Dockerfile.release
-    goarch: arm64
-    use: buildx
-    build_flag_templates:
-      - --platform
       - linux/arm64
-      - --load
-      - --label=org.opencontainers.image.version={{ .Version }}
-      - --label=org.opencontainers.image.revision={{ .FullCommit }}
-  - image_templates:
-      - "wroud/{{ .ProjectName }}:{{ .Version }}-arm32v6"
-      - "wroud/{{ .ProjectName }}:latest-arm32v6"
-    dockerfile: Dockerfile.release
-    goarch: arm
-    goarm: "6"
-    use: buildx
-    build_flag_templates:
-      - --platform
       - linux/arm/v6
-      - --load
-      - --label=org.opencontainers.image.version={{ .Version }}
-      - --label=org.opencontainers.image.revision={{ .FullCommit }}
-  - image_templates:
-      - "ghcr.io/wroud/{{ .ProjectName }}:{{ .Version }}-amd64"
-      - "ghcr.io/wroud/{{ .ProjectName }}:latest-amd64"
-    dockerfile: Dockerfile.release
-    goarch: amd64
-    use: buildx
-    build_flag_templates:
-      - --platform
-      - linux/amd64
-      - --load
-      - --label=org.opencontainers.image.version={{ .Version }}
-      - --label=org.opencontainers.image.revision={{ .FullCommit }}
-  - image_templates:
-      - "ghcr.io/wroud/{{ .ProjectName }}:{{ .Version }}-arm64"
-      - "ghcr.io/wroud/{{ .ProjectName }}:latest-arm64"
-    dockerfile: Dockerfile.release
-    goarch: arm64
-    use: buildx
-    build_flag_templates:
-      - --platform
-      - linux/arm64
-      - --load
-      - --label=org.opencontainers.image.version={{ .Version }}
-      - --label=org.opencontainers.image.revision={{ .FullCommit }}
-  - image_templates:
-      - "ghcr.io/wroud/{{ .ProjectName }}:{{ .Version }}-arm32v6"
-      - "ghcr.io/wroud/{{ .ProjectName }}:latest-arm32v6"
-    dockerfile: Dockerfile.release
-    goarch: arm
-    goarm: "6"
-    use: buildx
-    build_flag_templates:
-      - --platform
-      - linux/arm/v6
-      - --load
-      - --label=org.opencontainers.image.version={{ .Version }}
-      - --label=org.opencontainers.image.revision={{ .FullCommit }}
-
-docker_manifests:
-  - name_template: "wroud/{{ .ProjectName }}:{{ .Version }}"
-    image_templates:
-      - "wroud/{{ .ProjectName }}:{{ .Version }}-amd64"
-      - "wroud/{{ .ProjectName }}:{{ .Version }}-arm64"
-      - "wroud/{{ .ProjectName }}:{{ .Version }}-arm32v6"
-  - name_template: "wroud/{{ .ProjectName }}:latest"
-    image_templates:
-      - "wroud/{{ .ProjectName }}:latest-amd64"
-      - "wroud/{{ .ProjectName }}:latest-arm64"
-      - "wroud/{{ .ProjectName }}:latest-arm32v6"
-  - name_template: "ghcr.io/wroud/{{ .ProjectName }}:{{ .Version }}"
-    image_templates:
-      - "ghcr.io/wroud/{{ .ProjectName }}:{{ .Version }}-amd64"
-      - "ghcr.io/wroud/{{ .ProjectName }}:{{ .Version }}-arm64"
-      - "ghcr.io/wroud/{{ .ProjectName }}:{{ .Version }}-arm32v6"
-  - name_template: "ghcr.io/wroud/{{ .ProjectName }}:latest"
-    image_templates:
-      - "ghcr.io/wroud/{{ .ProjectName }}:latest-amd64"
-      - "ghcr.io/wroud/{{ .ProjectName }}:latest-arm64"
-      - "ghcr.io/wroud/{{ .ProjectName }}:latest-arm32v6"
+    tags:
+      - "{{ .Version }}"
+      - "latest"
+    labels:
+      org.opencontainers.image.authors: "Wroud <wrouds@gmail.com>"
+      org.opencontainers.image.title: "mc-router"
+      org.opencontainers.image.description: "Routes Minecraft Java Edition client connections to backend servers based upon the requested server address."
+      org.opencontainers.image.source: "{{ .GitURL }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.name: "{{ .ProjectName }}"
 changelog:
   filters:
     exclude:
