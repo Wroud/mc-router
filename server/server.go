@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime/pprof"
 	"strconv"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -52,6 +53,15 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 	downScalerDelay := config.AutoScale.DownAfter
 	// Only one instance should be created
 	DownScaler = NewDownScaler(ctx, downScalerEnabled, downScalerDelay)
+
+	if config.ConfigURL != "" {
+		interval := config.ConfigInterval
+		if interval < time.Second {
+			interval = 30 * time.Second
+		}
+		source := NewURLConfigSource(config.ConfigURL, config.ConfigAPIKey, interval)
+		go source.Start(ctx)
+	}
 
 	if config.Routes.Config != "" {
 		err := RoutesConfigLoader.Load(config.Routes.Config)

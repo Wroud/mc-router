@@ -50,6 +50,10 @@ type Config struct {
 	ReceiveProxyProtocol   bool          `default:"false" usage:"Receive PROXY protocol from backend servers, by default trusts every proxy header that it receives, combine with -trusted-proxies to specify a list of trusted proxies"`
 	TrustedProxies         []string      `usage:"Comma delimited list of CIDR notation IP blocks to trust when receiving PROXY protocol"`
 	RecordLogins           bool          `default:"false" usage:"Log and generate metrics on player logins. Metrics only supported with influxdb or prometheus backend"`
+	ConfigURL      string        `usage:"URL to poll for routes config (returns mc-router native JSON format)"`
+	ConfigAPIKey   string        `usage:"API key sent as x-api-key header when polling ConfigURL"`
+	ConfigInterval time.Duration `default:"30s" usage:"Polling interval for ConfigURL"`
+
 	Routes                 RoutesConfig
 	Ngrok                  NgrokConfig
 	AutoScale              AutoScale
