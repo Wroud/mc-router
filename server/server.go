@@ -109,7 +109,7 @@ func NewServer(ctx context.Context, config *Config) (*Server, error) {
 			WithField("require-user", config.Webhook.RequireUser).
 			Info("Using webhook for connection status notifications")
 		connector.UseConnectionNotifier(
-			NewWebhookNotifier(config.Webhook.Url, config.Webhook.RequireUser))
+			NewWebhookNotifier(config.Webhook.Url, config.Webhook.APIKey, config.Webhook.RequireUser))
 	}
 
 	if config.Ngrok.Token != "" {

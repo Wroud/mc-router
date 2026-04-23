@@ -16,6 +16,7 @@ import (
 // The payload is a JSON object defined by WebhookNotifierPayload.
 type WebhookNotifier struct {
 	url         string
+	apiKey      string
 	requireUser bool
 
 	client *http.Client
@@ -43,10 +44,11 @@ type WebhookNotifierPayload struct {
 	Error           string      `json:"error,omitempty"`
 }
 
-func NewWebhookNotifier(url string, requireUser bool) *WebhookNotifier {
+func NewWebhookNotifier(url string, apiKey string, requireUser bool) *WebhookNotifier {
 
 	return &WebhookNotifier{
 		url:         url,
+		apiKey:      apiKey,
 		requireUser: requireUser,
 		client: &http.Client{
 			Timeout: 30 * time.Second,
@@ -145,6 +147,9 @@ func (w *WebhookNotifier) send(ctx context.Context, payload *WebhookNotifierPayl
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	if w.apiKey != "" {
+		req.Header.Set("x-api-key", w.apiKey)
+	}
 
 	go func() {
 		resp, err := w.client.Do(req)

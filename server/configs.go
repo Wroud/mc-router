@@ -4,6 +4,7 @@ import "time"
 
 type WebhookConfig struct {
 	Url         string `usage:"If set, a POST request that contains connection status notifications will be sent to this HTTP address"`
+	APIKey      string `usage:"API key sent as x-api-key header with every webhook POST"`
 	RequireUser bool   `default:"false" usage:"Indicates if the webhook will only be called if a user is connecting rather than just server list/ping"`
 }
 
