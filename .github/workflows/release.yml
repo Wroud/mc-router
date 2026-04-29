@@ -6,6 +6,10 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+"
       - "v[0-9]+.[0-9]+.[0-9]+-*"
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   release:
     uses: wroud/github-workflows/.github/workflows/go-with-releaser-image.yml@main

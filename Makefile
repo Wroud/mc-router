@@ -2,6 +2,6 @@
 test:
 	go test ./...
 
-.PHONY: release
-release:
-	curl -sL https://git.io/goreleaser | bash
+.PHONY: snapshot
+snapshot:
+	goreleaser release --snapshot --clean --skip=publish

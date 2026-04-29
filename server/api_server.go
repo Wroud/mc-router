@@ -35,6 +35,38 @@ func registerApiRoutes(apiRoutes *mux.Router) {
 	apiRoutes.Path("/defaultRoute").Methods("POST").
 		HandlerFunc(routesSetDefault)
 	apiRoutes.Path("/routes/{serverAddress}").Methods("DELETE").HandlerFunc(routesDeleteHandler)
+	apiRoutes.Path("/routes/{serverAddress}/probe").Methods("GET").HandlerFunc(routesProbeHandler)
+}
+
+func routesProbeHandler(writer http.ResponseWriter, request *http.Request) {
+	serverAddress := mux.Vars(request)["serverAddress"]
+	if serverAddress == "" {
+		writer.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	backend, reachable := ProbeBackend(request.Context(), serverAddress)
+	if backend == "" {
+		writer.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	response := struct {
+		Backend   string `json:"backend"`
+		Reachable bool   `json:"reachable"`
+	}{Backend: backend, Reachable: reachable}
+
+	bytes, err := json.Marshal(response)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to marshal probe response")
+		writer.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	writer.Header().Set("Content-Type", "application/json")
+	if _, err := writer.Write(bytes); err != nil {
+		logrus.WithError(err).Error("Failed to write probe response")
+	}
 }
 
 func routesListHandler(writer http.ResponseWriter, _ *http.Request) {

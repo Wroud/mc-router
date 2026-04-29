@@ -9,7 +9,24 @@ on:
       - closed
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.gate.outputs.enabled }}
+    steps:
+      - id: gate
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [ -n "$WEBHOOK" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
   notify:
+    needs: check
+    if: needs.check.outputs.enabled == 'true'
     uses: itzg/github-workflows/.github/workflows/issues-notify-discord.yml@main
     secrets:
-      discordWebhook: "${{secrets.DISCORD_WEBHOOK}}"
+      discordWebhook: ${{ secrets.DISCORD_WEBHOOK }}

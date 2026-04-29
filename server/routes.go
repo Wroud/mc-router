@@ -82,6 +82,14 @@ func testBackendConnectivity(backend string) bool {
 	return true
 }
 
+func ProbeBackend(ctx context.Context, serverAddress string) (string, bool) {
+	backend, _, _, _, _ := Routes.FindBackendForServerAddress(ctx, serverAddress)
+	if backend == "" {
+		return "", false
+	}
+	return backend, testBackendConnectivity(backend)
+}
+
 func NewRoutes() IRoutes {
 	r := &routesImpl{
 		mappings: make(map[string]mapping),

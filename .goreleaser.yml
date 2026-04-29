@@ -1,10 +1,6 @@
 version: 2
 
 project_name: mc-router
-release:
-  github:
-    owner: wroud
-    name: mc-router
 before:
   hooks:
     - go mod download
@@ -47,7 +43,7 @@ dockers_v2:
       - linux/arm/v6
     tags:
       - "{{ .Version }}"
-      - "latest"
+      - "{{ if not .Prerelease }}latest{{ end }}"
     labels:
       org.opencontainers.image.authors: "Wroud <wrouds@gmail.com>"
       org.opencontainers.image.title: "mc-router"

@@ -811,7 +811,7 @@ docker run -it --rm \
   -v ${PWD}:/build -w /build \
   -v /var/run/docker.sock:/var/run/docker.sock \
   goreleaser/goreleaser \
-  release --snapshot --rm-dist
+  release --snapshot --clean
 ```
 
 ## Related Projects
